@@ -10,7 +10,7 @@ app = Flask(__name__)
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'password'
-app.config['MYSQL_DB'] = 'myflaskapp'
+app.config['MYSQL_DB'] = 'quizapp'
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
 #initialize MySQL
@@ -31,6 +31,7 @@ def about():
 class RegisterForm(Form):
 	name = StringField('Name', [validators.Length(min=1, max=50)])
 	username = StringField('Username', [validators.Length(min=4, max = 25)])
+	college = StringField('College', [validators.Length(min=6, max=50)])
 	email = StringField('Email', [validators.Length(min=6, max=50)])
 	password = PasswordField('Password', [
 		validators.DataRequired(),
@@ -46,12 +47,13 @@ def register():
 	if request.method == 'POST' and form.validate():
 		name = form.name.data
 		email = form.email.data
+		college = form.college.data
 		username = form.username.data
 		password = sha256_crypt.encrypt(str(form.password.data))
 		#Create cursor
 		cur = mysql.connection.cursor()
 
-		cur.execute("INSERT INTO users (name, email, username, password) values (%s, %s, %s, %s )", (name, email, username, password))
+		cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, email, username,college, password))
 		mysql.connection.commit()
 
 		cur.close()
