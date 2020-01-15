@@ -3,9 +3,11 @@ from flask_mysqldb import MySQL
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators
 from passlib.hash import sha256_crypt
 from data import Articles
-
+from flask_sqlalchemy import SQLAlchemy
+import datetime
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test1.db'
 #Config MySQL
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
@@ -15,9 +17,36 @@ app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
 #initialize MySQL
 mysql = MySQL(app)
+db = SQLAlchemy(app)
+
+'''
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    def __repr__(self):
+        return '<User %r>' % self.username
 
 
 
+admin = User(username='admin', email='admin@example.com')
+db.session.add(admin)
+db.session.commit()
+'''
+class Student(db.Model):
+	id = db.Column(db.Integer, primary_key=True)
+	name = db.Column(db.String(100))
+	username = db.Column(db.String(100))
+	college = db.Column(db.String(100))
+	email = db.Column(db.String(100))
+	password = db.Column(db.String(100))
+	register_date = db.Column(db.Date, default = datetime.datetime.now())
+
+class Question(db.Model):
+	id = db.Column(db.Integer, primary_key=True)
+	questionstring = db.Column(db.String(400))
+	
 
 
 @app.route('/')
@@ -55,9 +84,11 @@ def register():
 
 		cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, email, username,college, password))
 		mysql.connection.commit()
-
+		student = Student(name = name, username = username, college = college, email = email, password = password)
+		db.session.add(student)
+		db.session.commit()
 		cur.close()
-
+	
 		flash('You are now registered and can log in ', 'success')
 
 		return redirect(url_for('index'))
@@ -65,6 +96,33 @@ def register():
 
 		#render_template('register.html')
 	return render_template('register.html', form = form )
+
+
+@app.route('/adminpanel', methods = ['GET'])
+
+def displayadminpanel():
+	return render_template('adminpanel.html')
+
+@app.route('/adminpanel/questiontobank', methods=['GET'])
+
+def renderAddQuestionToBank():
+	return render_template('addquestiontobank.html')
+
+@app.route('/adminpanel/questiontobank',methods=['POST'])
+def addquestiontobank():
+	data = request.form.to_dict()
+	question = data['text']
+	cur = mysql.connection.cursor()
+	#cur.execute("INSERT INTO question (questionstring) values {}".format(question))
+	quesObject = Question(questionstring = question)
+	db.session.add(quesObject)
+	db.session.commit()
+	flash('Question added ', 'success')
+	return redirect('/adminpanel')
+
+
+
+
 
 if __name__ == '__main__':
 	app.secret_key='secret123'
