@@ -5,6 +5,7 @@ from passlib.hash import sha256_crypt
 from data import Articles
 from flask_sqlalchemy import SQLAlchemy
 import datetime
+from functools import wraps
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test1.db'
@@ -82,7 +83,7 @@ def register():
 		#Create cursor
 		cur = mysql.connection.cursor()
 
-		cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, email, username,college, password))
+		cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, username, email,college, password))
 		mysql.connection.commit()
 		student = Student(name = name, username = username, college = college, email = email, password = password)
 		db.session.add(student)
@@ -119,10 +120,72 @@ def addquestiontobank():
 	db.session.commit()
 	flash('Question added ', 'success')
 	return redirect('/adminpanel')
+#Login
+@app.route('/login',methods=['GET', 'POST'])
+def login():
+	if request.method == 'POST':
+		#Get form fields
+		username = request.form['username']
+		password_candidate = request.form['password']
+		#Create cursor 
+		cur = mysql.connection.cursor()
+		#Get user by username 
+		result = cur.execute("select * from students where username = %s",[username])
+		
+		if result > 0:
+			#Get stored hash
+			data = cur.fetchone()
+			password = data['password']
+
+			if sha256_crypt.verify(password_candidate, password):
+				app.logger.info("Password matched")
+				#Passed
+				session['logged_in'] = True
+				session['username'] = username
+				flash("You are now logged in ", 'success')
+				return redirect(url_for('dashboard'))
+
+			else:
+				error = 'Invalid credentials'
+				return render_template('login.html',error = error)
+			cur.close()
+			
+		else:
+			error = 'Username not found'
+			return render_template('login.html',error = error)
+
+	return render_template('login.html')
+
+
+#Check if user logged in 
+
+def is_logged_in(f):
+	@wraps(f)
+	def wrap(*args, **kwargs):
+		if 'logged_in' in session:
+			return f(*args, **kwargs)
+		else:
+			flash('Unauthorized, please log in ', 'danger')
+			return redirect(url_for('login'))
+
+	return wrap
 
 
 
 
+
+@app.route('/logout')
+def logout():
+	session.clear()
+	flash("You are now logged out", 'success')
+	return redirect(url_for('login'))
+
+
+
+@app.route('/dashboard')
+@is_logged_in
+def dashboard():
+	return render_template('dashboard.html')
 
 if __name__ == '__main__':
 	app.secret_key='secret123'
