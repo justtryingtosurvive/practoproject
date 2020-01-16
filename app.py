@@ -82,10 +82,10 @@ def register():
 		username = form.username.data
 		password = sha256_crypt.encrypt(str(form.password.data))
 		#Create cursor
-		cur = mysql.connection.cursor()
+		#cur = mysql.connection.cursor()
 
-		cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, username, email,college, password))
-		mysql.connection.commit()
+		#cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, username, email,college, password))
+		#mysql.connection.commit()
 		student = Student(name = name, username = username, college = college, email = email, password = password)
 		db.session.add(student)
 		db.session.commit()
