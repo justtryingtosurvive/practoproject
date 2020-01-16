@@ -25,12 +25,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-
     def __repr__(self):
         return '<User %r>' % self.username
-
-
-
 admin = User(username='admin', email='admin@example.com')
 db.session.add(admin)
 db.session.commit()
@@ -82,14 +78,14 @@ def register():
 		username = form.username.data
 		password = sha256_crypt.encrypt(str(form.password.data))
 		#Create cursor
-		cur = mysql.connection.cursor()
+		#cur = mysql.connection.cursor()
 
-		cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, username, email,college, password))
-		mysql.connection.commit()
+		#cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, username, email,college, password))
+		#mysql.connection.commit()
 		student = Student(name = name, username = username, college = college, email = email, password = password)
 		db.session.add(student)
 		db.session.commit()
-		cur.close()
+		#cur.close()
 	
 		flash('You are now registered and can log in ', 'success')
 
