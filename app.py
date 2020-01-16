@@ -44,10 +44,11 @@ class Student(db.Model):
 	password = db.Column(db.String(100))
 	register_date = db.Column(db.Date, default = datetime.datetime.now())
 
-class Question(db.Model):
+class Questions(db.Model):
 	id = db.Column(db.Integer, primary_key=True)
 	questionstring = db.Column(db.String(400))
-	
+	correctOptionNuumber = db.Column(db.Integer)
+	difficultyLevel = db.Column(db.Integer)
 
 
 @app.route('/')
@@ -112,13 +113,34 @@ def renderAddQuestionToBank():
 @app.route('/adminpanel/questiontobank',methods=['POST'])
 def addquestiontobank():
 	data = request.form.to_dict()
-	question = data['text']
-	cur = mysql.connection.cursor()
-	#cur.execute("INSERT INTO question (questionstring) values {}".format(question))
-	quesObject = Question(questionstring = question)
+	question = data['question']
+	option1 = data['Option1']
+	option2 = data['Option2']
+	option3 = data['Option3']
+	option4 = data['Option4']
+	noofoptions=4
+	if(data['Option5'] != ""):
+		option5 = data['Option5']
+		noofoptions = 5
+	if(data['Option6'] != ""):
+		option6 = data['Option6']
+		noofoptions = noofoptions+1
+
+	correctoptionnumber = data['correct']
+	difficulty = data['difficulty']
+	if(int(correctoptionnumber) > noofoptions):
+		flash('Check again','danger')
+		return redirect(url_for('addquestiontobank'))
+	quesObject = Questions(questionstring = question,correctOptionNuumber=correctoptionnumber, difficultyLevel = difficulty)
 	db.session.add(quesObject)
 	db.session.commit()
+	#Validate that the correct option is always less than noofoptions
+
+
+	
+	
 	flash('Question added ', 'success')
+	
 	return redirect('/adminpanel')
 #Login
 @app.route('/login',methods=['GET', 'POST'])
@@ -127,15 +149,12 @@ def login():
 		#Get form fields
 		username = request.form['username']
 		password_candidate = request.form['password']
-		#Create cursor 
-		cur = mysql.connection.cursor()
-		#Get user by username 
-		result = cur.execute("select * from students where username = %s",[username])
+		result = Student.query.filter_by(username=username).first()
 		
-		if result > 0:
+		if result:
 			#Get stored hash
-			data = cur.fetchone()
-			password = data['password']
+			
+			password = result.password
 
 			if sha256_crypt.verify(password_candidate, password):
 				app.logger.info("Password matched")
@@ -143,6 +162,7 @@ def login():
 				session['logged_in'] = True
 				session['username'] = username
 				flash("You are now logged in ", 'success')
+				print("ITS WORKINGGG")
 				return redirect(url_for('dashboard'))
 
 			else:
