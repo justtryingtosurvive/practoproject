@@ -125,7 +125,7 @@ def addquestiontobank():
 	if(data['Option6'] != ""):
 		option6 = data['Option6']
 		noofoptions = noofoptions+1
-
+	#Make sure noofoptions is greater than three
 	correctoptionnumber = data['correct']
 	difficulty = data['difficulty']
 	if(int(correctoptionnumber) > noofoptions):
@@ -206,6 +206,28 @@ def logout():
 @is_logged_in
 def dashboard():
 	return render_template('dashboard.html')
+
+@app.route('/adminpanel/createtest',methods=['GET','POST'])
+
+def createtest():
+	if(request.method =='GET'):
+		questions = Questions.query.all()
+		return render_template('createtest.html', questions=questions)
+	else:
+		college = request.form.get("college")
+		added_questions = []
+		question_ids = db.session.query(Questions.id).all()
+		question_id_list = [i[0] for i in question_ids]
+		question_id_list_strings = [str(i) for i in question_id_list]
+		for question_id in question_id_list_strings:
+			if request.form.get(question_id,"off") == 'on':
+				added_questions.append(int(question_id))
+		
+
+		msg = "Added questions "+ str(added_questions) + "for " + college 
+		flash(msg,'success')
+		return redirect(url_for('displayadminpanel'))
+		
 
 if __name__ == '__main__':
 	app.secret_key='secret123'
