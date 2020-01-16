@@ -125,7 +125,7 @@ def addquestiontobank():
 	if(data['Option6'] != ""):
 		option6 = data['Option6']
 		noofoptions = noofoptions+1
-
+	#Make sure noofoptions is greater than three
 	correctoptionnumber = data['correct']
 	difficulty = data['difficulty']
 	if(int(correctoptionnumber) > noofoptions):
