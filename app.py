@@ -6,15 +6,32 @@ from data import Articles
 from flask_sqlalchemy import SQLAlchemy
 import datetime
 from functools import wraps
+import pandas as pd
+import csv
+import os
+from werkzeug.utils import secure_filename
+import smtplib
+import os
+#Change this to use environment variables
+EMAIL_ADDRESS = "quizapptesting@gmail.com"
+EMAIL_PASSWORD = "practotest"
+
+
+UPLOAD_FOLDER = 'csvfiles'
+ALLOWED_EXTENSIONS = {'csv'}
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test1.db'
 #Config MySQL
 app.config['MYSQL_HOST'] = 'localhost'
+#Use environment variables
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'password'
 app.config['MYSQL_DB'] = 'quizapp'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 #initialize MySQL
 mysql = MySQL(app)
@@ -99,6 +116,7 @@ def register():
 @app.route('/adminpanel', methods = ['GET'])
 
 def displayadminpanel():
+	print("Sender Email ID ->>",EMAIL_ADDRESS)
 	return render_template('adminpanel.html')
 
 @app.route('/adminpanel/questiontobank', methods=['GET'])
@@ -158,7 +176,7 @@ def login():
 				session['logged_in'] = True
 				session['username'] = username
 				flash("You are now logged in ", 'success')
-				print("ITS WORKINGGG")
+				#print("ITS WORKINGGG")
 				return redirect(url_for('dashboard'))
 
 			else:
@@ -219,11 +237,59 @@ def createtest():
 			if request.form.get(question_id,"off") == 'on':
 				added_questions.append(int(question_id))
 		
-
+		
 		msg = "Added questions "+ str(added_questions) + "for " + college 
 		flash(msg,'success')
 		return redirect(url_for('displayadminpanel'))
 		
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/adminpanel/sendinvites',methods=['GET','POST'])
+def sendinvites():
+	if request.method == 'GET':
+		return render_template('sendinvites.html')
+	else:
+		# check if the post request has the file part
+		if 'file' not in request.files:
+			flash('No file part')
+			return redirect(request.url)
+		file = request.files['file']
+		# if user does not select file, browser also
+		# submit an empty part without filename
+		if file.filename == '':
+			flash('No selected file','danger')
+			return redirect(request.url)
+		if file and allowed_file(file.filename):
+			filename = secure_filename(file.filename)
+			file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+			df = pd.read_csv(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+			emails = df.values[:,0] #List of emails from the file
+			
+			
+			with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
+				smtp.ehlo()
+				smtp.starttls()
+				smtp.ehlo()
+				smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+				subject = 'Invitation for Practo test'
+				body='You\'ve been invited to take a MCQ test'
+				msg = f'Subject:{subject}\n\n{body}'
+					
+				for email in emails:
+					smtp.sendmail(EMAIL_ADDRESS,email,msg)
+					
+				
+			flash("Invites sent!", 'success')
+			return redirect(url_for('displayadminpanel'))
+
+
+
+	return "Done"
+
+
+
 
 if __name__ == '__main__':
 	app.secret_key='secret123'
