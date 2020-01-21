@@ -1,9 +1,12 @@
 from flask import Flask, render_template, flash, redirect, url_for, session, logging, request
 from flask_mysqldb import MySQL
-from wtforms import Form, StringField, TextAreaField, PasswordField, validators
+from wtforms import Form, StringField, TextAreaField, PasswordField, validators, SelectField
 from passlib.hash import sha256_crypt
-from data import Articles
+
 from flask_sqlalchemy import SQLAlchemy
+#from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship, backref
 import datetime
 from functools import wraps
 import pandas as pd
@@ -12,6 +15,10 @@ import os
 from werkzeug.utils import secure_filename
 import smtplib
 import os
+from wtforms_sqlalchemy.fields import QuerySelectField
+
+
+
 #Change this to use environment variables
 EMAIL_ADDRESS = "quizapptesting@gmail.com"
 EMAIL_PASSWORD = "practotest"
@@ -36,32 +43,43 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 #initialize MySQL
 mysql = MySQL(app)
 db = SQLAlchemy(app)
+tuples_list1 = []
 
-'''
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    def __repr__(self):
-        return '<User %r>' % self.username
-admin = User(username='admin', email='admin@example.com')
-db.session.add(admin)
-db.session.commit()
-'''
+class Test(db.Model):
+	__tablename__ = 'test'
+	test_id = db.Column(db.Integer, primary_key=True)
+	collegename = db.Column(db.String(100), ForeignKey("college.collegename"), nullable=False)
+
+
+
+
+
 class Student(db.Model):
+	__tablename__ ='student'
 	id = db.Column(db.Integer, primary_key=True)
 	name = db.Column(db.String(100))
 	username = db.Column(db.String(100))
-	college = db.Column(db.String(100))
+	college = db.Column(db.String(100), ForeignKey("college.collegename"), nullable=False)
 	email = db.Column(db.String(100))
 	password = db.Column(db.String(100))
 	register_date = db.Column(db.Date, default = datetime.datetime.now())
 
+class College(db.Model):
+	__tablename__ ='college'
+	id = db.Column(db.Integer, primary_key = True)
+	collegename = db.Column(db.String(400),unique=True)
+	students = db.relationship('Student', lazy=True)
+
+
 class Questions(db.Model):
+	__tablename__ ='questions'
 	id = db.Column(db.Integer, primary_key=True)
 	questionstring = db.Column(db.String(400))
 	correctOptionNuumber = db.Column(db.Integer)
 	difficultyLevel = db.Column(db.Integer)
+
+
+
 
 
 @app.route('/')
@@ -71,45 +89,48 @@ def index():
 def about():
 	return render_template('about.html')
 
+def getCollegeList():
+	result = db.session.query(College.collegename).all()
 
-class RegisterForm(Form):
-	name = StringField('Name', [validators.Length(min=1, max=50)])
-	username = StringField('Username', [validators.Length(min=4, max = 25)])
-	college = StringField('College', [validators.Length(min=6, max=50)])
-	email = StringField('Email', [validators.Length(min=6, max=50)])
-	password = PasswordField('Password', [
-		validators.DataRequired(),
-		validators.EqualTo('confirm', message = 'Passwords do not match')
+	tuples_list = [(i[0],i) for i in result]
+	print(tuples_list)
+	return  tuples_list
 
-		])
-	confirm = PasswordField('Confirm Password')
 
+
+#WT Forms wala form
 @app.route('/register', methods = ['GET', 'POST'])
-
 def register():
+	tuples_list1 = getCollegeList()
+	class RegisterForm(Form):
+		name = StringField('Name', [validators.Length(min=1, max=50)])
+		username = StringField('Username', [validators.Length(min=4, max = 25)])
+		college = SelectField('College', choices=tuples_list1)
+		email = StringField('Email', [validators.Length(min=6, max=50)])
+		password = PasswordField('Password', [
+				validators.DataRequired(),
+				validators.EqualTo('confirm', message = 'Passwords do not match')
+
+				])
+		confirm = PasswordField('Confirm Password')
+
+
+	print("In register, tuples_list1->", tuples_list1)
 	form = RegisterForm(request.form)
+
 	if request.method == 'POST' and form.validate():
 		name = form.name.data
 		email = form.email.data
 		college = form.college.data
 		username = form.username.data
 		password = sha256_crypt.encrypt(str(form.password.data))
-		#Create cursor
-		#cur = mysql.connection.cursor()
-
-		#cur.execute("INSERT INTO students (name,username, college, email, password) values (%s, %s, %s,%s, %s )", (name, username, email,college, password))
-		#mysql.connection.commit()
 		student = Student(name = name, username = username, college = college, email = email, password = password)
 		db.session.add(student)
 		db.session.commit()
-		#cur.close()
-	
 		flash('You are now registered and can log in ', 'success')
-
 		return redirect(url_for('index'))
-
-
-		#render_template('register.html')
+	
+	
 	return render_template('register.html', form = form )
 
 
@@ -126,23 +147,38 @@ def renderAddQuestionToBank():
 
 @app.route('/adminpanel/questiontobank',methods=['POST'])
 def addquestiontobank():
+	noofoptions = 0
 	data = request.form.to_dict()
 	question = data['question']
-	option1 = data['Option1']
-	option2 = data['Option2']
-	option3 = data['Option3']
-	option4 = data['Option4']
-	noofoptions=4
+	
+	if(data['Option1'] != ""):
+		option1 = data['Option1']
+		noofoptions = noofoptions+1
+
+	if(data['Option2'] != ""):	
+		option2 = data['Option2']
+		noofoptions= noofoptions+1
+
+	if(data['Option3'] != ""):	
+		option3 = data['Option3']
+		noofoptions= noofoptions+1
+
+	if(data['Option2'] != ""):
+		option4 = data['Option4']
+		noofoptions== noofoptions+1
+
 	if(data['Option5'] != ""):
 		option5 = data['Option5']
-		noofoptions = 5
+		noofoptions = noofoptions+1
+
 	if(data['Option6'] != ""):
 		option6 = data['Option6']
 		noofoptions = noofoptions+1
+
 	#Make sure noofoptions is greater than three
 	correctoptionnumber = data['correct']
 	difficulty = data['difficulty']
-	if(int(correctoptionnumber) > noofoptions):
+	if(int(correctoptionnumber) > noofoptions or noofoptions < 4):
 		flash('Check again','danger')
 		return redirect(url_for('addquestiontobank'))
 	quesObject = Questions(questionstring = question,correctOptionNuumber=correctoptionnumber, difficultyLevel = difficulty)
@@ -206,8 +242,6 @@ def is_logged_in(f):
 
 
 
-
-
 @app.route('/logout')
 def logout():
 	session.clear()
@@ -237,11 +271,28 @@ def createtest():
 			if request.form.get(question_id,"off") == 'on':
 				added_questions.append(int(question_id))
 		
-		
+		collegeList = db.session.query(College.collegename).all()
+
+		if college not in collegeList:
+			collegeInstance = College(collegename = college)
+			db.session.add(collegeInstance)
+			db.session.commit()
+
+
+		testcreated = Test(collegename=college)
+		db.session.add(testcreated)
+		db.session.commit()
+
+
 		msg = "Added questions "+ str(added_questions) + "for " + college 
 		flash(msg,'success')
+		
 		return redirect(url_for('displayadminpanel'))
 		
+
+
+
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
