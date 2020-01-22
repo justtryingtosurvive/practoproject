@@ -1,11 +1,26 @@
 <!doctype html>
     <title>Send invitations</title>
-    <h1>Upload a csv file containing email ids</h1>
+    <h1>Send invites</h1>
+    <p>Upload a csv file containing email ids. Inviting people will take a while. Be patient</p>
     <form method=post enctype=multipart/form-data>
       <input type=file name=file>
-      <input type=submit value="Invite">
       
-
-
-
+      <p>Choose the test to invite people</p>
+        <table border="2">
+          <tr>
+            <th>     </th>
+            <th>ID </th>
+            <th>College name</th>
+          </tr>
+          {% for test in tests %}
+          <tr>
+            <td><input type="radio" name='selectedcollege' value="{{test.test_id}}"></td>
+            <td> {{test.test_id}}</td>
+            <td> {{test.collegename}} </td>
+          </tr>
+          {% endfor %}
+        </table>
+        <input type=submit value="Invite" font_size="50">
     </form>
+
+    
