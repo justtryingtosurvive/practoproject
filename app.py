@@ -255,6 +255,7 @@ def logout():
 def dashboard():
 	return render_template('dashboard.html')
 
+
 @app.route('/adminpanel/createtest',methods=['GET','POST'])
 
 def createtest():
@@ -355,3 +356,4 @@ def sendinvites():
 if __name__ == '__main__':
 	app.secret_key='secret123'
 	app.run(debug = True)
+#Hey
