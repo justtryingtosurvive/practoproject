@@ -69,7 +69,7 @@ class College(db.Model):
 	id = db.Column(db.Integer, primary_key = True)
 	collegename = db.Column(db.String(400),unique=True)
 	students = db.relationship('Student', lazy=True)
-
+	tests = db.relationship('Test', lazy=True)
 
 class Questions(db.Model):
 	__tablename__ ='questions'
@@ -93,7 +93,7 @@ def getCollegeList():
 	result = db.session.query(College.collegename).all()
 
 	tuples_list = [(i[0],i) for i in result]
-	print(tuples_list)
+	
 	return  tuples_list
 
 
@@ -115,7 +115,7 @@ def register():
 		confirm = PasswordField('Confirm Password')
 
 
-	print("In register, tuples_list1->", tuples_list1)
+	
 	form = RegisterForm(request.form)
 
 	if request.method == 'POST' and form.validate():
@@ -137,7 +137,7 @@ def register():
 @app.route('/adminpanel', methods = ['GET'])
 
 def displayadminpanel():
-	print("Sender Email ID ->>",EMAIL_ADDRESS)
+	
 	return render_template('adminpanel.html')
 
 @app.route('/adminpanel/questiontobank', methods=['GET'])
@@ -212,7 +212,7 @@ def login():
 				session['logged_in'] = True
 				session['username'] = username
 				flash("You are now logged in ", 'success')
-				#print("ITS WORKINGGG")
+				
 				return redirect(url_for('dashboard'))
 
 			else:
@@ -272,6 +272,8 @@ def createtest():
 				added_questions.append(int(question_id))
 		
 		collegeList = db.session.query(College.collegename).all()
+		collegeList = [i[0] for i in collegeList]
+
 
 		if college not in collegeList:
 			collegeInstance = College(collegename = college)
@@ -300,7 +302,8 @@ def allowed_file(filename):
 @app.route('/adminpanel/sendinvites',methods=['GET','POST'])
 def sendinvites():
 	if request.method == 'GET':
-		return render_template('sendinvites.html')
+		tests = Test.query.all()
+		return render_template('sendinvites.html', tests=tests)
 	else:
 		# check if the post request has the file part
 		if 'file' not in request.files:
@@ -318,7 +321,13 @@ def sendinvites():
 			df = pd.read_csv(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 			emails = df.values[:,0] #List of emails from the file
 			
-			
+			selectedcollegeid = request.form.get('selectedcollege')
+			print("selectedcollegeid => ", selectedcollegeid)
+			''' Create a test instance for each email_id, fetch the selected'''
+
+
+
+
 			with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
 				smtp.ehlo()
 				smtp.starttls()
@@ -331,6 +340,7 @@ def sendinvites():
 				for email in emails:
 					smtp.sendmail(EMAIL_ADDRESS,email,msg)
 					
+
 				
 			flash("Invites sent!", 'success')
 			return redirect(url_for('displayadminpanel'))
