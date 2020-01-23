@@ -16,7 +16,9 @@ from werkzeug.utils import secure_filename
 import smtplib
 import os
 from wtforms_sqlalchemy.fields import QuerySelectField
-
+import random
+from celerytasks import sendEmail
+import json
 
 
 #Change this to use environment variables
@@ -49,6 +51,21 @@ class Test(db.Model):
 	__tablename__ = 'test'
 	test_id = db.Column(db.Integer, primary_key=True)
 	collegename = db.Column(db.String(100), ForeignKey("college.collegename"), nullable=False)
+
+
+class Test_Question(db.Model):
+	__tablename__ = 'test_question'
+	test_question_id = db.Column(db.Integer, primary_key=True)
+	test_id = db.Column(db.Integer, ForeignKey("test.test_id"), nullable=False)
+	question_id = db.Column(db.Integer, ForeignKey("questions.id"), nullable=False)
+
+
+
+class TestInstance(db.Model):
+	__tablename__ = 'testinstance'
+	test_instance_id = db.Column(db.Integer, primary_key=True)
+	test_question_id = db.Column(db.Integer, ForeignKey("test_question.test_question_id"), nullable=False)
+	student_email = db.Column(db.String(400), nullable=False)
 
 
 
@@ -95,7 +112,6 @@ def getCollegeList():
 	tuples_list = [(i[0],i) for i in result]
 	
 	return  tuples_list
-
 
 
 #WT Forms wala form
@@ -163,9 +179,9 @@ def addquestiontobank():
 		option3 = data['Option3']
 		noofoptions= noofoptions+1
 
-	if(data['Option2'] != ""):
+	if(data['Option4'] != ""):
 		option4 = data['Option4']
-		noofoptions== noofoptions+1
+		noofoptions= noofoptions+1
 
 	if(data['Option5'] != ""):
 		option5 = data['Option5']
@@ -176,16 +192,18 @@ def addquestiontobank():
 		noofoptions = noofoptions+1
 
 	#Make sure noofoptions is greater than three
+	#Validate that the correct option is always less than noofoptions
+	
 	correctoptionnumber = data['correct']
 	difficulty = data['difficulty']
-	if(int(correctoptionnumber) > noofoptions or noofoptions < 4):
+	
+	if((int(correctoptionnumber) > noofoptions) or (noofoptions < 4)):
 		flash('Check again','danger')
 		return redirect(url_for('addquestiontobank'))
 	quesObject = Questions(questionstring = question,correctOptionNuumber=correctoptionnumber, difficultyLevel = difficulty)
 	db.session.add(quesObject)
 	db.session.commit()
-	#Validate that the correct option is always less than noofoptions
-
+	
 
 	
 	
@@ -287,6 +305,14 @@ def createtest():
 		db.session.commit()
 
 
+		test_created_id = testcreated.test_id
+		for question in added_questions:
+
+			test_question_instance = Test_Question(test_id=test_created_id, question_id=question)
+			db.session.add(test_question_instance)
+			db.session.commit()
+
+
 		msg = "Added questions "+ str(added_questions) + "for " + college 
 		flash(msg,'success')
 		
@@ -322,13 +348,27 @@ def sendinvites():
 			df = pd.read_csv(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 			emails = df.values[:,0] #List of emails from the file
 			
-			selectedcollegeid = request.form.get('selectedcollege')
-			print("selectedcollegeid => ", selectedcollegeid)
-			''' Create a test instance for each email_id, fetch the selected'''
+			selectedtestid = request.form.get('selectedtestid')
+			print("selectedtestid => ", selectedtestid)
+			''' Create a test instance for each email_id. Select some random questions from Test_question. '''
+			no_of_questions_in_test_instance = 3
 
+			#Fetch all the questions which belong to a particular test
+			questions = Test_Question.query.filter_by(test_id = selectedtestid).all()
+			print("Questions which belong to test id number",selectedtestid,"->>",questions)
 
+			for email in emails:
+				#Pick any no_of_questions_in_test_instance number of questions randmomly from Test_question
+				RandomListOfQuestions = random.sample(questions, 3)
+				print("For email id = ",email,"Selected questions are->>",RandomListOfQuestions)
 
+				for row in RandomListOfQuestions:
+					test_question_id_of_random_question = row.test_question_id
+					test_instance_object = TestInstance(student_email = email, test_question_id = test_question_id_of_random_question)
+					db.session.add(test_instance_object)
+					db.session.commit()
 
+			'''	
 			with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
 				smtp.ehlo()
 				smtp.starttls()
@@ -337,18 +377,29 @@ def sendinvites():
 				subject = 'Invitation for Practo test'
 				body='You\'ve been invited to take a MCQ test'
 				msg = f'Subject:{subject}\n\n{body}'
-					
-				for email in emails:
-					smtp.sendmail(EMAIL_ADDRESS,email,msg)
-					
-
 				
+				for email in emails:
+					smtp.sendmail(EMAIL_ADDRESS,email,msg) 
+			'''
+
+			
+			sendEmail.delay(list(emails))
+
+
+
 			flash("Invites sent!", 'success')
 			return redirect(url_for('displayadminpanel'))
 
 
 
 	return "Done"
+
+
+@app.route('/adminpanel/viewtests')
+def viewtests():
+	return render_template("viewtests.html")
+
+
 
 
 
