@@ -50,6 +50,7 @@ db = SQLAlchemy(app)
 tuples_list1 = []
 questions_list = []
 questions_to_display={}
+answers_objects_list= []
 
 class Test(db.Model):
 	__tablename__ = 'test'
@@ -452,9 +453,13 @@ def starttest(session_username):
 
 
 def displayquestion(number):
+	
 	if request.method == 'GET':
+			
 			number = int(number)
-			if number < no_of_questions_in_test_instance:
+			if number == 0:
+				return redirect('/question/1')
+			if number <= no_of_questions_in_test_instance:
 				question_to_be_displayed = questions_to_display[number]
 
 
@@ -467,18 +472,34 @@ def displayquestion(number):
 				question_object = question_object[0]
 
 				#We now need to just query the answers table to fetch the options available for the question_id
-
+				global answers_objects_list
 				answers_objects_list = Answers.query.filter_by(question_id = question_to_be_displayed).all()
 				print("Answers objects list ->>", answers_objects_list)
 
-				
 
-				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list)
+				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test =no_of_questions_in_test_instance )
 
 			else:
-				return redirect(url_for('dashboard'))
+				return "End of test page"
 	elif request.method == 'POST':
-		return "Somethings wrong"
+		#Now, we need to check whether the correct answer for this question is checked or not. 
+		#So, we need to get the answer ID of the correct answer. Then we check whether the checkbox
+		#Associated with that answer ID is checked or not. If its checked, its a correct answer. 
+		#If not, its the wrong answer. 
+		correct_answer_id = 0
+		for answer_object in answers_objects_list:
+			print("Answer object->", answer_object)
+			if answer_object.is_the_correct_answer:
+				correct_answer_id = answer_object.answer_id
+		print("Correct answer ID ->",correct_answer_id)
+
+		#Now, we have the correct answer ID for the question. We check to see if the checkbox is marked
+		selected_answer_id = request.form.get('selectedanswer')
+		print("Selected answer ID ->", selected_answer_id)
+
+
+
+		return "Need to save the marked answer and process everything"
 	
 
 
