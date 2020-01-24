@@ -1,0 +1,16 @@
+<p>
+{{question.questionstring}}
+</p>
+<p> Options: </p>
+<form action="" method="POST">
+<ol>
+{% for answer in answers %}
+<li> <input type="radio" name='selectedanswer' value="{{answer.answer_id }}"> {{answer.answer_string}} </li>
+{% endfor %}
+</ol>
+<input type = "Submit" value="Save" >
+</form>
+{% set decr = question_number -1 %}
+{% set incr = question_number +1 %}
+<a href="/question/{{decr}}">Previous question</a>
+<a href="/question/{{incr}} ">Next question</a>

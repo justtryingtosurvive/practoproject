@@ -15,9 +15,8 @@ import os
 from werkzeug.utils import secure_filename
 import smtplib
 import os
-from wtforms_sqlalchemy.fields import QuerySelectField
 import random
-from celerytasks import sendEmail
+from celerytasks import sendEmail, setquestionslist, getquestionslist
 import json
 
 
@@ -42,10 +41,15 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+
+no_of_questions_in_test_instance = 3 
+
 #initialize MySQL
 mysql = MySQL(app)
 db = SQLAlchemy(app)
 tuples_list1 = []
+questions_list = []
+questions_to_display={}
 
 class Test(db.Model):
 	__tablename__ = 'test'
@@ -66,8 +70,6 @@ class TestInstance(db.Model):
 	test_instance_id = db.Column(db.Integer, primary_key=True)
 	test_question_id = db.Column(db.Integer, ForeignKey("test_question.test_question_id"), nullable=False)
 	student_email = db.Column(db.String(400), nullable=False)
-
-
 
 
 
@@ -94,6 +96,13 @@ class Questions(db.Model):
 	questionstring = db.Column(db.String(400))
 	correctOptionNuumber = db.Column(db.Integer)
 	difficultyLevel = db.Column(db.Integer)
+
+class Answers(db.Model):
+	__tablename__ = 'answers'
+	answer_id = db.Column(db.Integer, primary_key=True)
+	answer_string = db.Column(db.String, nullable=False)
+	question_id = db.Column(db.Integer, ForeignKey('questions.id'), nullable = False)
+	is_the_correct_answer = db.Column(db.Boolean, default=False)
 
 
 
@@ -166,30 +175,18 @@ def addquestiontobank():
 	noofoptions = 0
 	data = request.form.to_dict()
 	question = data['question']
+	options = []
+	base_str = 'Option'
 	
-	if(data['Option1'] != ""):
-		option1 = data['Option1']
-		noofoptions = noofoptions+1
+	
+	for i in range(1,7):
+		temp = base_str + str(i)
+		if data[temp] != "":
+			noofoptions+= 1
+			options.append(data[temp])
 
-	if(data['Option2'] != ""):	
-		option2 = data['Option2']
-		noofoptions= noofoptions+1
+	print("Added options ->",options)
 
-	if(data['Option3'] != ""):	
-		option3 = data['Option3']
-		noofoptions= noofoptions+1
-
-	if(data['Option4'] != ""):
-		option4 = data['Option4']
-		noofoptions= noofoptions+1
-
-	if(data['Option5'] != ""):
-		option5 = data['Option5']
-		noofoptions = noofoptions+1
-
-	if(data['Option6'] != ""):
-		option6 = data['Option6']
-		noofoptions = noofoptions+1
 
 	#Make sure noofoptions is greater than three
 	#Validate that the correct option is always less than noofoptions
@@ -201,9 +198,25 @@ def addquestiontobank():
 		flash('Check again','danger')
 		return redirect(url_for('addquestiontobank'))
 	quesObject = Questions(questionstring = question,correctOptionNuumber=correctoptionnumber, difficultyLevel = difficulty)
+	
+	
 	db.session.add(quesObject)
 	db.session.commit()
+	newly_added_question_id = quesObject.id
+
+	print("Newly added question Id ->>", newly_added_question_id)
 	
+	base_string = 'Option'
+	flag_to_indicate_correct_option = False
+	for i in range(1,7):
+		temp = base_string + str(i)
+		if i == int(correctoptionnumber):
+			flag_to_indicate_correct_option = True
+		if data[temp] != "":
+			answer_object = Answers(answer_string= options.pop(0), question_id = newly_added_question_id, is_the_correct_answer = flag_to_indicate_correct_option)
+			flag_to_indicate_correct_option = False
+			db.session.add(answer_object)
+			db.session.commit()
 
 	
 	
@@ -351,7 +364,7 @@ def sendinvites():
 			selectedtestid = request.form.get('selectedtestid')
 			print("selectedtestid => ", selectedtestid)
 			''' Create a test instance for each email_id. Select some random questions from Test_question. '''
-			no_of_questions_in_test_instance = 3
+			
 
 			#Fetch all the questions which belong to a particular test
 			questions = Test_Question.query.filter_by(test_id = selectedtestid).all()
@@ -367,32 +380,108 @@ def sendinvites():
 					test_instance_object = TestInstance(student_email = email, test_question_id = test_question_id_of_random_question)
 					db.session.add(test_instance_object)
 					db.session.commit()
+		
+			sendEmail.delay(list(emails))
+			flash("Invites sent!", 'success')
 
-			'''	
-			with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
-				smtp.ehlo()
-				smtp.starttls()
-				smtp.ehlo()
-				smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-				subject = 'Invitation for Practo test'
-				body='You\'ve been invited to take a MCQ test'
-				msg = f'Subject:{subject}\n\n{body}'
-				
-				for email in emails:
-					smtp.sendmail(EMAIL_ADDRESS,email,msg) 
-			'''
 
 			
-			sendEmail.delay(list(emails))
-
-
-
-			flash("Invites sent!", 'success')
 			return redirect(url_for('displayadminpanel'))
+		print("Should be flashing")
+		flash("Please check the file uplaoded and try again", 'danger')
+		return redirect(url_for('displayadminpanel'))
+
+
+	
 
 
 
-	return "Done"
+@app.route('/startquiz/<session_username>')
+
+def starttest(session_username):
+	if(session['username'] == session_username):
+		''' Fetch questions for this username, send those questions.   '''
+		student_associated_with_logged_in_username = Student.query.filter_by(username=session_username).one()
+		email_associated_with_logged_in_student = student_associated_with_logged_in_username.email
+		questions_associated_with_email=[]
+		#We basically fetched the email_id of the logged in user. Now we need to query the Test_instance
+		#table to find the questions which are associated with this email. 
+
+		#We join the Test_Question table and the TestInstance table on question_id, and then
+		#Select the rows for which the email_id is the same as the email_associated_with_logged_in_student
+
+		test_question_list = Test_Question.query.join(TestInstance, Test_Question.test_question_id ==  TestInstance.test_question_id).add_columns(Test_Question.question_id, Test_Question.test_id,TestInstance.test_instance_id,TestInstance.student_email).filter(TestInstance.student_email == email_associated_with_logged_in_student).all()
+		print("joined table ->>", test_question_list)
+		print("\n")
+		
+		#The above join query returns a table with multiple columns, but we dont really need all the columns.
+		#Hence, we just select the question_id column from the table. This is the second element of each tuple
+		#in the list, hence the below operations. 
+
+		for iterator in test_question_list:
+			print("iterator->>",iterator)
+			print("questions->>",iterator[1])
+			questions_associated_with_email.append(iterator[1])
+
+
+		#Hence, questions_associated_with_email contains the question_ids which are meant for the email address
+		#which was used to sign in. 
+		print("questions_associated_with_email ->>", questions_associated_with_email)
+		
+		#We now save this in a global variable questions_list. We pop a question_id from this list
+		#and display the question accordingly in another route.
+		global questions_list
+		questions_list = questions_associated_with_email
+		
+	
+		#So we now save the question_ids of the questions to be displayed in a global dictionary,
+		#Whose indices start from 1. This is because we want to use the request parameter recieved
+		#To get the question_id of the question to be displayed
+
+		global questions_to_display 
+		for i in range(1,len(questions_list)+1):
+			questions_to_display[i] = questions_list[i-1]
+
+		print("questions_to_display-->>", questions_to_display)
+		return redirect(('/question/1'))
+		
+
+
+@app.route('/question/<number>', methods=['GET','POST'])  #This 'number' refers to the question number 
+#which will be displayed on the screen to the user i.e. the question number in a particular test for a user.
+
+
+def displayquestion(number):
+	if request.method == 'GET':
+			number = int(number)
+			if number < no_of_questions_in_test_instance:
+				question_to_be_displayed = questions_to_display[number]
+
+
+				print("Question to be displayed ->>",question_to_be_displayed)
+				question_object = Questions.query.filter_by(id=question_to_be_displayed).all()
+				#The above query returns a list. The list will contain only one element, which is an object of
+				#Question class. We just need the object, so that we can pass the object to the render_template method.
+
+				print("Question_object->",question_object[0])
+				question_object = question_object[0]
+
+				#We now need to just query the answers table to fetch the options available for the question_id
+
+				answers_objects_list = Answers.query.filter_by(question_id = question_to_be_displayed).all()
+				print("Answers objects list ->>", answers_objects_list)
+
+				
+
+				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list)
+
+			else:
+				return redirect(url_for('dashboard'))
+	elif request.method == 'POST':
+		return "Somethings wrong"
+	
+
+
 
 
 @app.route('/adminpanel/viewtests')
