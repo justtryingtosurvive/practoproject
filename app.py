@@ -30,6 +30,7 @@ UPLOAD_FOLDER = 'csvfiles'
 ALLOWED_EXTENSIONS = {'csv'}
 
 app = Flask(__name__)
+app.secret_key='secret123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test1.db'
 #Config MySQL
 app.config['MYSQL_HOST'] = 'localhost'
@@ -693,6 +694,6 @@ def viewtestresults():
 
 
 if __name__ == '__main__':
-	app.secret_key='secret123'
+	
 	app.run(debug = True)
 #Hey
