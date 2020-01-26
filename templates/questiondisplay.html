@@ -51,6 +51,8 @@
       if (distance < 0) {
         clearInterval(x);
         document.getElementById("timer").innerHTML = "EXPIRED";
+        window.location.replace("/endtest");
+
       }
     }, 1000);
     </script>
@@ -79,7 +81,7 @@
 {% set incr = question_number +1 %}
 <a href="/question/{{decr}}">Previous question</a>
 <a href="/question/{{incr}} ">Next question</a>
-
+`
 
 {% endblock %}
 

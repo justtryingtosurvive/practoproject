@@ -53,7 +53,7 @@ questions_list = []
 questions_to_display={}
 answers_objects_list= []
 question_object = []
-TEST_DURATION = 20
+TEST_DURATION = 2/10
 
 class RedisDB(Root):
 	pass
@@ -297,6 +297,10 @@ def logout():
 		session.clear()
 		flash("This action is not allowed. Logging out.", 'danger')
 		return redirect(url_for('login'))
+	elif session['status'] == 'done':
+		session.clear()
+		flash("Test sucessfully submitted. Logging out",'Success')
+		return redirect(url_for('login'))
 	else:
 		session.clear()
 		flash("You are now logged out", 'success')
@@ -524,7 +528,7 @@ def displayquestion(number):
 				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test=no_of_questions_in_test_instance, endtime=endtime)
 
 			else:
-				return "End of test page"
+				return render_template("confirmendtest.html",question_number=int(number))
 	
 	else:
 
@@ -588,6 +592,11 @@ def displayquestion(number):
 @app.route('/adminpanel/viewtests')
 def viewtests():
 	return render_template("viewtests.html")
+
+@app.route('/endtest', methods = ['POST','GET'])
+def endtest():
+	session['status'] = 'done'
+	return redirect('/logout')
 
 
 
