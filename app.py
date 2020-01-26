@@ -53,8 +53,8 @@ questions_list = []
 questions_to_display={}
 answers_objects_list= []
 question_object = []
-TEST_DURATION = 2/10
-
+TEST_DURATION = 1
+selected_answer_id = 0
 class RedisDB(Root):
 	pass
 redis = RedisDB()
@@ -523,9 +523,9 @@ def displayquestion(number):
 				endtime = ts+ TEST_DURATION*1000*60
 				redis.end.time = endtime
 		
-
+				global selected_answer_id
 				
-				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test=no_of_questions_in_test_instance, endtime=endtime)
+				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test=no_of_questions_in_test_instance, endtime=endtime, selected_answer_id = selected_answer_id)
 
 			else:
 				return render_template("confirmendtest.html",question_number=int(number))
@@ -565,6 +565,8 @@ def displayquestion(number):
 		print("Correct answer ID ->",correct_answer_id)
 
 		#Now, we have the correct answer ID for the question. We check to see if the checkbox is marked
+		
+
 		selected_answer_id = request.args.get('selectedanswer',0,type=int)
 		
 		print("Selected answer ID ->", selected_answer_id)

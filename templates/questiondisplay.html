@@ -72,7 +72,11 @@
 <form action="/question/{{question_number}}" id="theForm"   >
 <ol>
 {% for answer in answers %}
+{% if answer.answer_id == selected_answer_id %}
+<li> <input type="radio" name='selectedanswer' value="{{answer.answer_id }}" autocomplete="off" checked= > {{answer.answer_string}} </li>
+{% else %}
 <li> <input type="radio" name='selectedanswer' value="{{answer.answer_id }}" autocomplete="off" > {{answer.answer_string}} </li>
+{% endif %}
 {% endfor %}
 </ol>
 <button> Save </button>
