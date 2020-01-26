@@ -1,12 +1,20 @@
 from celery import Celery
+from flask import Flask, render_template, flash, redirect, url_for, session, logging, request
+
 import smtplib
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import ForeignKey
 
 EMAIL_ADDRESS = "quizapptesting@gmail.com"
 EMAIL_PASSWORD = "practotest"
 app = Celery('celerytasks', broker='pyamqp://guest@localhost//')
 saved_list = []
+
+
+
+
 @app.task
-def sendEmail(email_ids):
+def sendEmails(email_ids):
     with smtplib.SMTP('smtp.gmail.com', 587) as smtp:
         smtp.ehlo()
         smtp.starttls()
@@ -18,7 +26,11 @@ def sendEmail(email_ids):
 
         for email in email_ids:
             smtp.sendmail(EMAIL_ADDRESS,email,msg)
+
             print("Sent email to ->",email)
+
+
+
 
     return "Done"
 

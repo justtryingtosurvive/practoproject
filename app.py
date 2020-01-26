@@ -1,4 +1,4 @@
-from flask import Flask, render_template, flash, redirect, url_for, session, logging, request
+from flask import Flask, render_template, flash, redirect, url_for, session, logging, request, send_file, send_from_directory
 from flask_mysqldb import MySQL
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators, SelectField
 from passlib.hash import sha256_crypt
@@ -16,7 +16,7 @@ from werkzeug.utils import secure_filename
 import smtplib
 import os
 import random
-from celerytasks import sendEmail, setquestionslist, getquestionslist
+from celerytasks import sendEmails, setquestionslist, getquestionslist
 import json
 from redisworks import Root	
 
@@ -53,7 +53,7 @@ questions_list = []
 questions_to_display={}
 answers_objects_list= []
 question_object = []
-TEST_DURATION = 1
+TEST_DURATION = 2
 selected_answer_id = 0
 class RedisDB(Root):
 	pass
@@ -88,9 +88,10 @@ class Student(db.Model):
 	name = db.Column(db.String(100))
 	username = db.Column(db.String(100))
 	college = db.Column(db.String(100), ForeignKey("college.collegename"), nullable=False)
-	email = db.Column(db.String(100))
+	email = db.Column(db.String(100),unique=True)
 	password = db.Column(db.String(100))
 	register_date = db.Column(db.Date, default = datetime.datetime.now())
+	score = db.Column(db.Integer)
 
 class College(db.Model):
 	__tablename__ ='college'
@@ -113,7 +114,10 @@ class Answers(db.Model):
 	question_id = db.Column(db.Integer, ForeignKey('questions.id'), nullable = False)
 	is_the_correct_answer = db.Column(db.Boolean, default=False)
 
-
+class InvitedEmails(db.Model):
+	__tablename__ = 'invitedemails'
+	invite_id = db.Column(db.Integer, primary_key=True)
+	email_id = db.Column(db.String)
 
 
 
@@ -375,7 +379,7 @@ def sendinvites():
 	else:
 		# check if the post request has the file part
 		if 'file' not in request.files:
-			flash('No file part')
+			flash('No file part','danger')
 			return redirect(request.url)
 		file = request.files['file']
 		# if user does not select file, browser also
@@ -397,25 +401,39 @@ def sendinvites():
 			#Fetch all the questions which belong to a particular test
 			questions = Test_Question.query.filter_by(test_id = selectedtestid).all()
 			print("Questions which belong to test id number",selectedtestid,"->>",questions)
+			invitedemails = db.session.query(InvitedEmails.email_id).all()
+			print("Invited emails =>",invitedemails)
+			invitedemailslist = []
+			for invitedemail in invitedemails:
+				invitedemailslist.append(invitedemail[0])
 
 			for email in emails:
-				#Pick any no_of_questions_in_test_instance number of questions randmomly from Test_question
-				RandomListOfQuestions = random.sample(questions, 3)
-				print("For email id = ",email,"Selected questions are->>",RandomListOfQuestions)
+	
+				if email not in invitedemailslist:
 
-				for row in RandomListOfQuestions:
-					test_question_id_of_random_question = row.test_question_id
-					test_instance_object = TestInstance(student_email = email, test_question_id = test_question_id_of_random_question)
-					db.session.add(test_instance_object)
+				
+					#Pick any no_of_questions_in_test_instance number of questions randmomly from Test_question
+					RandomListOfQuestions = random.sample(questions, 3)
+					print("For email id = ",email,"Selected questions are->>",RandomListOfQuestions)
+
+
+					for row in RandomListOfQuestions:
+						test_question_id_of_random_question = row.test_question_id
+						test_instance_object = TestInstance(student_email = email, test_question_id = test_question_id_of_random_question)
+						db.session.add(test_instance_object)
+						db.session.commit()
+					
+					invited_email_instance = InvitedEmails(email_id = email)
+					db.session.add(invited_email_instance)
 					db.session.commit()
-		
-			sendEmail.delay(list(emails))
+			
+			sendEmails.delay(list(emails))
 			flash("Invites sent!", 'success')
 
 
 			
 			return redirect(url_for('displayadminpanel'))
-		print("Should be flashing")
+		
 		flash("Please check the file uplaoded and try again", 'danger')
 		return redirect(url_for('displayadminpanel'))
 
@@ -591,17 +609,86 @@ def displayquestion(number):
 
 
 
-@app.route('/adminpanel/viewtests')
-def viewtests():
-	return render_template("viewtests.html")
+
+
 
 @app.route('/endtest', methods = ['POST','GET'])
 def endtest():
 	session['status'] = 'done'
+	#Calculate the score here. 
+	
+	email_associated_with_logged_in_student = session['email_id']
+	student_associated_with_logged_in_username = Student.query.filter_by(username=session['username']).one()
+	test_instance_list_of_tuples = TestInstance.query.join(Test_Question, Test_Question.test_question_id ==  TestInstance.test_question_id).add_columns(Test_Question.question_id, Test_Question.test_id,TestInstance.test_instance_id,TestInstance.student_email).filter(TestInstance.student_email == session['email_id']).all()
+	print("test_instance_list_of_tuples", test_instance_list_of_tuples)
+	score = 0
+	test_instance_object_list = []
+	list_of_question_ids_for_this_student = []
+	for row in test_instance_list_of_tuples:
+		test_instance_object_list.append(row[0])
+		list_of_question_ids_for_this_student.append(row[1])
+	print("test_instance_object_list-->>",test_instance_object_list)
+	print(" list_of_question_ids_for_this_student ->>",list_of_question_ids_for_this_student)
+	for i in range(0,len(test_instance_object_list)):
+		question_object = Questions.query.filter_by(id = list_of_question_ids_for_this_student[i]).one()
+		difficulty_level_of_question = question_object.difficultyLevel
+		if test_instance_object_list[i].correct_answer_selected:
+			score = score + difficulty_level_of_question
+	print("Score ->>",score)
+
+	student_associated_with_logged_in_username.score = score
+	db.session.commit()
+
+
+
+
 	return redirect('/logout')
 
 
 
+@app.route('/adminpanel/testresults',methods=['POST','GET'])
+def viewtestresults():
+	if request.method == 'GET':
+		test_objects = Test.query.all()
+		return render_template('testresults.html',tests=test_objects)
+	else:
+		selected_test_id = request.form.get("selectedtest")
+		
+
+		joined_table = Student.query.join(Test, Student.college == Test.collegename).add_columns(Student.college, Test.collegename, Student.email, Student.score).filter(Test.test_id == selected_test_id).all()
+		
+		student_list = []
+		scores_list = []
+		for row in joined_table:
+			student_list.append(row[0])
+			scores_list.append(row[4])
+		
+		merged_list = [(student_list[i].name, student_list[i].email, scores_list[i]) for i in range(0, len(student_list))] 
+		
+		#Basically, merge the two lists into a single list of tuples, so that its easier to sort 
+		
+		sorted_list = merged_list.sort(key= lambda x:x[2], reverse=True) #Sorts the list of tuples based on
+		#the third element of each tuple, in descending order
+		sorted_list = merged_list
+		print("Sorted list->", sorted_list )
+
+		test_object = Test.query.filter_by(test_id = selected_test_id).one()
+		test_name = test_object.collegename 
+		filename_to_send = test_name
+		filename_to_send = filename_to_send+'.csv'
+		print("name of file->",filename_to_send)
+
+		with open(filename_to_send, 'w', newline="") as file:
+			writer = csv.writer(file)
+			writer.writerow(['Name','EmailID','Score'])
+			writer.writerows(sorted_list)
+		
+
+
+
+
+
+		return send_file(os.getcwd()+'/'+filename_to_send,as_attachment=True, attachment_filename=filename_to_send)
 
 
 
