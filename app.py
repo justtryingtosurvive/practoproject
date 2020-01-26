@@ -18,6 +18,7 @@ import os
 import random
 from celerytasks import sendEmail, setquestionslist, getquestionslist
 import json
+from redisworks import Root	
 
 
 #Change this to use environment variables
@@ -51,6 +52,12 @@ tuples_list1 = []
 questions_list = []
 questions_to_display={}
 answers_objects_list= []
+question_object = []
+TEST_DURATION = 20
+
+class RedisDB(Root):
+	pass
+redis = RedisDB()
 
 class Test(db.Model):
 	__tablename__ = 'test'
@@ -71,6 +78,7 @@ class TestInstance(db.Model):
 	test_instance_id = db.Column(db.Integer, primary_key=True)
 	test_question_id = db.Column(db.Integer, ForeignKey("test_question.test_question_id"), nullable=False)
 	student_email = db.Column(db.String(400), nullable=False)
+	correct_answer_selected = db.Column(db.Boolean, default = False)
 
 
 
@@ -243,6 +251,7 @@ def login():
 				#Passed
 				session['logged_in'] = True
 				session['username'] = username
+				session['status'] = 'LoggedIn'
 				flash("You are now logged in ", 'success')
 				
 				return redirect(url_for('dashboard'))
@@ -276,15 +285,29 @@ def is_logged_in(f):
 
 @app.route('/logout')
 def logout():
-	session.clear()
-	flash("You are now logged out", 'success')
-	return redirect(url_for('login'))
-
-
+	
+	tuples_list1 = []
+	questions_list = []
+	questions_to_display={}
+	answers_objects_list= []
+	question_object = []
+	redis.questions.to.display = None
+	redis.questions.list = None
+	if session['status'] == 'InTest':
+		session.clear()
+		flash("This action is not allowed. Logging out.", 'danger')
+		return redirect(url_for('login'))
+	else:
+		session.clear()
+		flash("You are now logged out", 'success')
+		return redirect(url_for('login'))
 
 @app.route('/dashboard')
 @is_logged_in
 def dashboard():
+	if session['status'] == 'InTest':
+		print("Invalid action. Logging out")
+		return redirect((url_for('logout')))
 	return render_template('dashboard.html')
 
 
@@ -398,12 +421,13 @@ def sendinvites():
 
 
 @app.route('/startquiz/<session_username>')
-
+@is_logged_in
 def starttest(session_username):
 	if(session['username'] == session_username):
 		''' Fetch questions for this username, send those questions.   '''
 		student_associated_with_logged_in_username = Student.query.filter_by(username=session_username).one()
 		email_associated_with_logged_in_student = student_associated_with_logged_in_username.email
+		session['email_id'] = email_associated_with_logged_in_student
 		questions_associated_with_email=[]
 		#We basically fetched the email_id of the logged in user. Now we need to query the Test_instance
 		#table to find the questions which are associated with this email. 
@@ -433,73 +457,129 @@ def starttest(session_username):
 		#and display the question accordingly in another route.
 		global questions_list
 		questions_list = questions_associated_with_email
-		
+		redis.questions.list = questions_list
 	
 		#So we now save the question_ids of the questions to be displayed in a global dictionary,
 		#Whose indices start from 1. This is because we want to use the request parameter recieved
 		#To get the question_id of the question to be displayed
 
-		global questions_to_display 
+		global questions_to_display
+		
 		for i in range(1,len(questions_list)+1):
 			questions_to_display[i] = questions_list[i-1]
-
+		
+		redis.questions.to.display = questions_to_display
 		print("questions_to_display-->>", questions_to_display)
+
+		ts = datetime.datetime.now().timestamp()  
+		'''Get current timestamp, this returns in seconds. But client side Javascript uses miliseconds. So, multiply by 1000'''
+		redis.ts = ts
+		#This is basically the timestamp of the start of the test		
 		return redirect(('/question/1'))
 		
 
 
 @app.route('/question/<number>', methods=['GET','POST'])  #This 'number' refers to the question number 
 #which will be displayed on the screen to the user i.e. the question number in a particular test for a user.
-
+@is_logged_in
 
 def displayquestion(number):
+	session['status'] = 'InTest'
 	
-	if request.method == 'GET':
+	if request.method == 'GET' and request.args.get('selectedanswer')== None:
 			
-			number = int(number)
-			if number == 0:
+			
+			if int(number) == 0:
 				return redirect('/question/1')
-			if number <= no_of_questions_in_test_instance:
-				question_to_be_displayed = questions_to_display[number]
+			if int(number) <= no_of_questions_in_test_instance:
+				question_to_be_displayed = questions_to_display.get(int(number))
+				if question_to_be_displayed == None:
+					return "No questions for you "
 
-
+				global question_object #This is to communicate with the part that handles the POST request
+				#OTherwise, we would have to query again
+				
 				print("Question to be displayed ->>",question_to_be_displayed)
 				question_object = Questions.query.filter_by(id=question_to_be_displayed).all()
 				#The above query returns a list. The list will contain only one element, which is an object of
 				#Question class. We just need the object, so that we can pass the object to the render_template method.
-
+				session['current_question_id'] = question_to_be_displayed
 				print("Question_object->",question_object[0])
 				question_object = question_object[0]
 
 				#We now need to just query the answers table to fetch the options available for the question_id
-				global answers_objects_list
+				global answers_objects_list #This is to communicate with the part that handles the POST request.
 				answers_objects_list = Answers.query.filter_by(question_id = question_to_be_displayed).all()
 				print("Answers objects list ->>", answers_objects_list)
 
+				#Use redis here
+				ts = redis.ts
 
-				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test =no_of_questions_in_test_instance )
+				ts = ts*1000
+				endtime = ts+ TEST_DURATION*1000*60
+				redis.end.time = endtime
+		
+
+				
+				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test=no_of_questions_in_test_instance, endtime=endtime)
 
 			else:
 				return "End of test page"
-	elif request.method == 'POST':
+	
+	else:
+
+	
+		''' Basically, I need to add one more column,correct_answer_selected to testinstance, and rebuild the database. 
+		Make it false by default. Get the list of TestInstance objects, filtered by email_id of the session. 
+		Then, if the correct answer is marked for the question we just displayed, change the correct_answer_selected to true. '''
+		
+		print("Session variable of qid->>", session['current_question_id'])
+
+		test_instance_list_of_tuples = TestInstance.query.join(Test_Question, Test_Question.test_question_id ==  TestInstance.test_question_id).add_columns(Test_Question.question_id, Test_Question.test_id,TestInstance.test_instance_id,TestInstance.student_email).filter(TestInstance.student_email == session['email_id']).all()
+		#The above query results in a list of tuples, of the format (<TestInstance object>, selected columns). 
+		#We just want the TestInstance objects, so that we can modify their correct_answer_selected column
+		
+		print("Test instance list of tuples in display questions ->>", test_instance_list_of_tuples)
+		
+		
+		
+		for row in test_instance_list_of_tuples:
+			if row[1] == session['current_question_id']:
+				test_instance_associated_with_question = row[0]
+
+		print("test_instance_associated_with_question -->>", test_instance_associated_with_question)
+
 		#Now, we need to check whether the correct answer for this question is checked or not. 
 		#So, we need to get the answer ID of the correct answer. Then we check whether the checkbox
 		#Associated with that answer ID is checked or not. If its checked, its a correct answer. 
 		#If not, its the wrong answer. 
 		correct_answer_id = 0
 		for answer_object in answers_objects_list:
-			print("Answer object->", answer_object)
+			
 			if answer_object.is_the_correct_answer:
 				correct_answer_id = answer_object.answer_id
 		print("Correct answer ID ->",correct_answer_id)
 
 		#Now, we have the correct answer ID for the question. We check to see if the checkbox is marked
-		selected_answer_id = request.form.get('selectedanswer')
+		selected_answer_id = request.args.get('selectedanswer',0,type=int)
+		
 		print("Selected answer ID ->", selected_answer_id)
+		try:
+			if int(selected_answer_id) == correct_answer_id:
+				print("Correct answer picked")
+				test_instance_associated_with_question.correct_answer_selected = True
+				db.session.commit()
+			else:
+				print("Wrong answer picked")
+				if test_instance_associated_with_question.correct_answer_selected == True:
+					test_instance_associated_with_question.correct_answer_selected = False
+					db.session.commit()
+		except TypeError:
+			print("No answer was selected")
 
+		print("request_url-->>",request.url)
+		return ('', 204)
 
-
-		return "Need to save the marked answer and process everything"
 	
 
 
