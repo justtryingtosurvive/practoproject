@@ -3,6 +3,12 @@
 {% block body %}
 <div class="jumbotron text-center">
 	<h1>Welcome to the Quiz app. Please register and login</h1>
-	<p class="lead"> This application is built on the python Flask framework</p>
+	<button id="myButton" class="float-centre submit-button" >Register</button>
+
+<script type="text/javascript">
+    document.getElementById("myButton").onclick = function () {
+        location.href = "/register";
+    };
+</script>
 </div>
 {% endblock %}
