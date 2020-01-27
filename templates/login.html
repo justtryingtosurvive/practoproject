@@ -5,7 +5,7 @@
 
 
 {% block body %}
-<body style="background-color: lightblue;">
+body style="background-color: lightblue;">
 
   <div class="container-fluid bg">
     
@@ -16,18 +16,12 @@
         
       <div class="alert alert-info">
           <strong>
-
-
-
         <form class="form-container "action="" method="POST";>
           <h1><center>Login</center></h1>
           <div class="form-group">
             <label>Username</label>
             <input type="text" name="username" class="form-control" value={{request.form.username}}>
           </div>
-
-
-          
           <div class="form-group">
             <label>Password</label>
             <input type="password" name="password" class="form-control" value={{request.form.password}}>
@@ -37,10 +31,6 @@
           <br/>
           <br/>
         </form>
-
-
-
-
       </div>  
       <div class="col-md-4 col-sm-4 col-xs-12"></div>
     </div>
@@ -48,4 +38,5 @@
 </strong> 
 </div>
 </body>
+
 {% endblock %}
