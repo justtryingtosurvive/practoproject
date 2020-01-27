@@ -1,11 +1,14 @@
 {% extends 'layout.html' %}
 
 {% block body %}
-<h1> Admin panel </h1>
-    <p><a href='/adminpanel/questiontobank'> Add question to bank</a></p>
-    <p><a href='/adminpanel/createtest'> Create test </a></p>
-    <p><a href='/adminpanel/testresults'> View test results </a></p>
-    <p><a href='/adminpanel/sendinvites'> Send invites </a></p>
-    
-    
+<body style="background-color: rgb(214, 209, 166);">
+<h1 style="font-family: 'Franklin Gothic Medium';"> Admin Panel </h1>
+    </br>
+
+    <button type="button" class="btn btn-secondary btn-lg btn-block"><p><a href='/adminpanel/questiontobank'> Add question to bank</a></p></button>
+    <button type="button" class="btn btn-secondary btn-lg btn-block"><p><a href='/adminpanel/createtest'> Create test </a></p></button>
+    <button type="button" class="btn btn-secondary btn-lg btn-block"><p><a href='/adminpanel/testresults'> View test results </a></p></button>
+    <button type="button" class="btn btn-secondary btn-lg btn-block"><p><a href='/adminpanel/sendinvites'> Send invites </a></p></button>
+
+</body>
 {% endblock %}
