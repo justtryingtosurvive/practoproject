@@ -58,6 +58,7 @@ TEST_DURATION = 2
 selected_answer_id = 0
 ts=0
 endtime=0
+answer_selected_list={}
 
 class Test(db.Model):
 	__tablename__ = 'test'
@@ -170,6 +171,23 @@ def register():
 	
 	
 	return render_template('register.html', form = form )
+
+@app.route('/adminpanellogin', methods=['GET','POST'])
+def displayadminlogin():
+	if request.method == 'POST':
+		admin_username = "root"
+		admin_password = "helloworld"
+		entered_username = request.form.get('admin_username')
+		entered_password = request.form.get('admin_password')
+		if entered_username == admin_username and entered_password == admin_password:
+			flash('Successfully logged in ', 'success')
+			return redirect(url_for('displayadminpanel'))
+		else:
+			flash('Invalid credentials, check again','danger')
+			return redirect('/')
+	else:
+		return render_template('adminpanellogin.html')
+
 
 
 @app.route('/adminpanel', methods = ['GET'])
@@ -297,6 +315,7 @@ def logout():
 	questions_to_display={}
 	answers_objects_list= []
 	question_object = []
+	answer_selected_list={}
 
 	if session['status'] == 'InTest':
 		session.clear()
@@ -533,22 +552,19 @@ def displayquestion(number):
 				#The above query returns a list. The list will contain only one element, which is an object of
 				#Question class. We just need the object, so that we can pass the object to the render_template method.
 				session['current_question_id'] = question_to_be_displayed
-				print("Question_object->",question_object[0])
+				
 				question_object = question_object[0]
 
 				#We now need to just query the answers table to fetch the options available for the question_id
 				global answers_objects_list #This is to communicate with the part that handles the POST request.
 				answers_objects_list = Answers.query.filter_by(question_id = question_to_be_displayed).all()
-				print("Answers objects list ->>", answers_objects_list)
-
 				
-				
-				
-				global ts, endtime
+				global ts, endtime, answer_selected_list
 		
 				global selected_answer_id
+				global answer_selected_list
 				
-				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test=no_of_questions_in_test_instance, endtime=endtime, selected_answer_id = selected_answer_id)
+				return render_template('questiondisplay.html',question=question_object, question_number = int(number),answers = answers_objects_list,total_number_of_questions_in_test=no_of_questions_in_test_instance, endtime=endtime, selected_answer_id = answer_selected_list.get(session.get('current_question_id')))
 
 			else:
 				return render_template("confirmendtest.html",question_number=int(number))
@@ -560,21 +576,15 @@ def displayquestion(number):
 		Make it false by default. Get the list of TestInstance objects, filtered by email_id of the session. 
 		Then, if the correct answer is marked for the question we just displayed, change the correct_answer_selected to true. '''
 		
-		print("Session variable of qid->>", session['current_question_id'])
+		
 
 		test_instance_list_of_tuples = TestInstance.query.join(Test_Question, Test_Question.test_question_id ==  TestInstance.test_question_id).add_columns(Test_Question.question_id, Test_Question.test_id,TestInstance.test_instance_id,TestInstance.student_email).filter(TestInstance.student_email == session['email_id']).all()
 		#The above query results in a list of tuples, of the format (<TestInstance object>, selected columns). 
 		#We just want the TestInstance objects, so that we can modify their correct_answer_selected column
 		
-		print("Test instance list of tuples in display questions ->>", test_instance_list_of_tuples)
-		
-		
-		
 		for row in test_instance_list_of_tuples:
 			if row[1] == session['current_question_id']:
 				test_instance_associated_with_question = row[0]
-
-		print("test_instance_associated_with_question -->>", test_instance_associated_with_question)
 
 		#Now, we need to check whether the correct answer for this question is checked or not. 
 		#So, we need to get the answer ID of the correct answer. Then we check whether the checkbox
@@ -588,9 +598,9 @@ def displayquestion(number):
 		print("Correct answer ID ->",correct_answer_id)
 
 		#Now, we have the correct answer ID for the question. We check to see if the checkbox is marked
-		
 
 		selected_answer_id = request.args.get('selectedanswer',0,type=int)
+		answer_selected_list[session['current_question_id']] = selected_answer_id
 		
 		print("Selected answer ID ->", selected_answer_id)
 		try:

@@ -1,13 +1,8 @@
 
 {% block head %}
-<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-
- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-<script type=text/javascript>
-    $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
-  </script>
-
-
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="/styles/styling.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
 
 <script>
     $(document).ready(function(){
@@ -22,8 +17,6 @@
         });
       });
     });
-
-
 </script> 
 
 <script>
@@ -61,10 +54,13 @@
 
 
 {% block body %}
-<div>
-<p> Time remaining =  </p>
-<p id='timer'> </p>
+
+
+<div id ='timediv'>
+<p> Time remaining =   <span id='timer'> </span> </p>
 </div>
+
+
 <p> Q{{question_number}} out of {{total_number_of_questions_in_test}} <br/>
 {{question.questionstring}}
 </p>

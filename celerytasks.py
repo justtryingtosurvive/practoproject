@@ -21,7 +21,12 @@ def sendEmails(email_ids):
         smtp.ehlo()
         smtp.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         subject = 'Invitation for Practo test'
-        body='You\'ve been invited to take a MCQ test. SENT ASYNCHRONOUYSLY'
+        body='''You\'ve been invited to take an MCQ test! Please click on the below link. Register on the site
+        with this email ID, and pick a username for the same. After registering, login with the username and password.
+        Then, you will be able to take the test. 
+        Please click here: http://13.233.250.169/ ''' 
+
+
         msg = f'Subject:{subject}\n\n{body}'
 
         for email in email_ids:
