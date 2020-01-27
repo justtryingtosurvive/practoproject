@@ -1,5 +1,4 @@
 from flask import Flask, render_template, flash, redirect, url_for, session, logging, request, send_file, send_from_directory
-from flask_mysqldb import MySQL
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators, SelectField
 from passlib.hash import sha256_crypt
 
@@ -22,33 +21,25 @@ import json
 
 
 #Change this to use environment variables
-EMAIL_ADDRESS = "quizapptesting@gmail.com"
-EMAIL_PASSWORD = "practotest"
 
-
-UPLOAD_FOLDER = 'csvfiles'
-ALLOWED_EXTENSIONS = {'csv'}
+UPLOAD_FOLDER = 'csvfiles'    #Upload folder is the folder name on the server which will store the uploaded 
+ALLOWED_EXTENSIONS = {'csv'}  #Csv files. Allowed extensions is the list of allowed extensions of the file
+#Which was uploaded
 
 app = Flask(__name__)
 app.secret_key='secret123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test1.db'
-#Config MySQL
-app.config['MYSQL_HOST'] = 'localhost'
-#Use environment variables
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'password'
-app.config['MYSQL_DB'] = 'quizapp'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False           #Ignore the warnings
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 
-no_of_questions_in_test_instance = 3 
+no_of_questions_in_test_instance = 10      #Lets say the number of questions each student gets is 10
 
-#initialize MySQL
-mysql = MySQL(app)
+
 db = SQLAlchemy(app)
+#These are some global variables which are used to help different routes pass information amongst themselves.
+#We should have used redis for this purpose but we couldn't get it to work properly
+#The uses of all these will make sense when they are actually being used
 tuples_list1 = []
 questions_list = []
 questions_to_display={}
@@ -59,6 +50,9 @@ selected_answer_id = 0
 ts=0
 endtime=0
 answer_selected_list={}
+
+
+#Declare the classes or tables in our DB
 
 class Test(db.Model):
 	__tablename__ = 'test'
@@ -121,17 +115,25 @@ class InvitedEmails(db.Model):
 	email_id = db.Column(db.String)
 
 
-
+#Basically, returns the homepage
 @app.route('/')
 def index():
 	return render_template('home.html')
+
+#Basically, returns the about page. 
 @app.route('/about')
 def about():
 	return render_template('about.html')
 
-def getCollegeList():
-	result = db.session.query(College.collegename).all()
 
+#This method is used to get the list of colleges for which a test has been created, so that only 
+#the students from those colleges can register for which a test has been created 
+def getCollegeList():
+	result = db.session.query(College.collegename).all()  
+	#We need it to be in this format, i.e, (collegename, collegename) because the WTForms method which 
+	#We use to render the field expects it to be in this format. First value is the value which will be displayed
+	#The other is the value which be assigned to the input field
+	#We use list comprehension to turn the array into the above format
 	tuples_list = [(i[0],i) for i in result]
 	
 	return  tuples_list
@@ -153,8 +155,10 @@ def register():
 				])
 		confirm = PasswordField('Confirm Password')
 
-
-	
+	#This is a really expensive way to do things, but what we are essentially doing is that creating a new 
+	# RegisterForm class every time a student tries to register. This is because we need to know what are the
+	# Colleges for which a test has been created. 
+	# 	
 	form = RegisterForm(request.form)
 
 	if request.method == 'POST' and form.validate():
@@ -163,15 +167,20 @@ def register():
 		college = form.college.data
 		username = form.username.data
 		password = sha256_crypt.encrypt(str(form.password.data))
+		#We encrypt the password we recieved
 		student = Student(name = name, username = username, college = college, email = email, password = password)
 		db.session.add(student)
 		db.session.commit()
 		flash('You are now registered and can log in ', 'success')
 		return redirect(url_for('index'))
+		#We basically send the user back to the homepage after registering
 	
-	
+	#If he just wants to GET the form to fill it, we render the template with the form we created and send it
+
 	return render_template('register.html', form = form )
 
+#This is to prevent people from accessing the login page. 
+#Not very safe but it will do. I am assuming there is only one admin, whose credentials are hardcoded.
 @app.route('/adminpanellogin', methods=['GET','POST'])
 def displayadminlogin():
 	if request.method == 'POST':
@@ -191,30 +200,31 @@ def displayadminlogin():
 
 
 @app.route('/adminpanel', methods = ['GET'])
-
 def displayadminpanel():
-	
+	#Nothing much to do, just render the page and send it back
 	return render_template('adminpanel.html')
 
 @app.route('/adminpanel/questiontobank', methods=['GET'])
-
 def renderAddQuestionToBank():
+	#Again, just render a page and send it to the user. 
 	return render_template('addquestiontobank.html')
 
 @app.route('/adminpanel/questiontobank',methods=['POST'])
 def addquestiontobank():
-	noofoptions = 0
-	data = request.form.to_dict()
+	noofoptions = 0              #The number of options the user selected there
+	data = request.form.to_dict() #Convert the form data into a dict for easier processing
 	question = data['question']
-	options = []
-	base_str = 'Option'
+	options = []                 #This will contain the strings of the options entered
+	base_str = 'Option'          #This is the base string which will make it easier to iterate through the 
+								#keys of the data dict. 
 	
 	
-	for i in range(1,7):
+	for i in range(1,7):       #Since there are 6 option fields rendered.
 		temp = base_str + str(i)
 		if data[temp] != "":
 			noofoptions+= 1
-			options.append(data[temp])
+			options.append(data[temp]) #Basically, we check whether a field is empty or not. If it is not, we append
+			#to the list
 
 	print("Added options ->",options)
 
@@ -222,23 +232,29 @@ def addquestiontobank():
 	#Make sure noofoptions is greater than three
 	#Validate that the correct option is always less than noofoptions
 	
-	correctoptionnumber = data['correct']
-	difficulty = data['difficulty']
+	correctoptionnumber = data['correct']  #get the selected option number which is supposed to be the correct
+	#option
+
+	difficulty = data['difficulty'] #Get the difficulty level of the question
 	
-	if((int(correctoptionnumber) > noofoptions) or (noofoptions < 4)):
+	if((int(correctoptionnumber) > noofoptions) or (noofoptions < 4)):  #If any of the validations mentioned aren't true
 		flash('Check again','danger')
 		return redirect(url_for('addquestiontobank'))
 	quesObject = Questions(questionstring = question,correctOptionNuumber=correctoptionnumber, difficultyLevel = difficulty)
-	
+	#Everything looks okay, we can add a row in the Questions table. 
 	
 	db.session.add(quesObject)
 	db.session.commit()
-	newly_added_question_id = quesObject.id
+	
+	newly_added_question_id = quesObject.id   #We need to get the ID of the newly added question, so that 
+	#we can use it to map the answers/options/whatever you call it to the question
 
 	print("Newly added question Id ->>", newly_added_question_id)
 	
-	base_string = 'Option'
-	flag_to_indicate_correct_option = False
+	base_string = 'Option'    #Same use as mentioned above, to make it easier to iterate through the options
+
+	flag_to_indicate_correct_option = False   #Basically, set the boolean is_the_correct_answer to either true 
+	#or false, based on the provided correct option number. 
 	for i in range(1,7):
 		temp = base_string + str(i)
 		if i == int(correctoptionnumber):
@@ -248,52 +264,57 @@ def addquestiontobank():
 			flag_to_indicate_correct_option = False
 			db.session.add(answer_object)
 			db.session.commit()
+			#Add the options to the answers table, but only if they are not empty strings. 
 
 	
 	
 	flash('Question added ', 'success')
 	
 	return redirect('/adminpanel')
-#Login
+
+
 @app.route('/login',methods=['GET', 'POST'])
 def login():
 	if('logged_in' in session):
-		return redirect(url_for('dashboard'))
+		return redirect(url_for('dashboard')) #The user is logged in, but he still wants to access the login
+		#page. So lets just send him back to dashboard. 
 	if request.method == 'POST':
-		#Get form fields
+		#Handle the form data the user has POSTed to us. 
 		username = request.form['username']
-		password_candidate = request.form['password']
+		password_candidate = request.form['password']  #This is the password the user has entered.
 		result = Student.query.filter_by(username=username).first()
 		
 		if result:
 			#Get stored hash
-			
+			#This is the value we've stored in the DB
 			password = result.password
 
 			if sha256_crypt.verify(password_candidate, password):
 				app.logger.info("Password matched")
 				#Passed
-				session['logged_in'] = True
+				session['logged_in'] = True    #Set session variables for later use. 
 				session['username'] = username
 				session['status'] = 'LoggedIn'
 				flash("You are now logged in ", 'success')
 				
-				return redirect(url_for('dashboard'))
+				return redirect(url_for('dashboard')) #Send him back to the login page
 
 			else:
 				error = 'Invalid credentials'
-				return render_template('login.html',error = error)
-			cur.close()
+				return render_template('login.html',error = error) #just flash a message saying auth failed
+
 			
 		else:
-			error = 'Username not found'
+			error = 'Username not found'   #If the query resulted in no rows, then no username was found
 			return render_template('login.html',error = error)
 
-	return render_template('login.html')
+	return render_template('login.html')  #The user wants the Login page, so give it to him 
 
 
 #Check if user logged in 
-
+#Okay so this part of code is something even I dont uderstand. This was from the flask 
+#Documentation. Basically, we use @is_logged_in after every route to make sure the route only
+#processes requests if the user is logged in. Otherwise it'll just send a message and ask him to login
 def is_logged_in(f):
 	@wraps(f)
 	def wrap(*args, **kwargs):
@@ -305,8 +326,6 @@ def is_logged_in(f):
 
 	return wrap
 
-
-
 @app.route('/logout')
 def logout():
 	
@@ -316,73 +335,89 @@ def logout():
 	answers_objects_list= []
 	question_object = []
 	answer_selected_list={}
+	#Clear every global variable we've used.
 
 	if session['status'] == 'InTest':
 		session.clear()
 		flash("This action is not allowed. Logging out.", 'danger')
 		return redirect(url_for('login'))
+		#The user did something he wasn't supposed to
 	elif session['status'] == 'done':
 		session.clear()
 		flash("Test sucessfully submitted. Logging out",'Success')
 		return redirect(url_for('login'))
+		#The user completed the test 
 	else:
 		session.clear()
 		flash("You are now logged out", 'success')
 		return redirect(url_for('login'))
+		#He clicked on logout on the dashboard
 
 @app.route('/dashboard')
 @is_logged_in
 def dashboard():
 	if session['status'] == 'InTest':
-		print("Invalid action. Logging out")
+		print("Invalid action. Logging out") #If he's in the test but tries to come to the dashboard again,
+		#we log the bad boy out
 		return redirect((url_for('logout')))
-	return render_template('dashboard.html')
+	return render_template('dashboard.html') #Otherwise, we just give him the dashboard 
 
 
 @app.route('/adminpanel/createtest',methods=['GET','POST'])
 
 def createtest():
 	if(request.method =='GET'):
-		questions = Questions.query.all()
+		questions = Questions.query.all() #Send all the questions to the client, render everything
+		#On the client side 
+
 		return render_template('createtest.html', questions=questions)
 	else:
 		college = request.form.get("college")
 		added_questions = []
 		question_ids = db.session.query(Questions.id).all()
-		question_id_list = [i[0] for i in question_ids]
+		question_id_list = [i[0] for i in question_ids]  #The query returns a weird format, use list
+		#comprehension to make it into a normal list
+
 		question_id_list_strings = [str(i) for i in question_id_list]
+		#Convert the list of ints to strings
+
+
 		for question_id in question_id_list_strings:
 			if request.form.get(question_id,"off") == 'on':
 				added_questions.append(int(question_id))
+		#The get method on a python will return the default if there is no key, instead of throwing an error
+		#Which can come in really handy. 
 		
+		#Get the list of all the colleges and sanitize them
 		collegeList = db.session.query(College.collegename).all()
 		collegeList = [i[0] for i in collegeList]
 
-
+		#Only add the colleges if its not already added to the colleges tables
 		if college not in collegeList:
 			collegeInstance = College(collegename = college)
 			db.session.add(collegeInstance)
 			db.session.commit()
 
-
+		#Create a new test object/row for this college. It is basically a one to one mapping
 		testcreated = Test(collegename=college)
 		db.session.add(testcreated)
 		db.session.commit()
 
+		#Add all questions to the Test_question table. This is basically a table which has a mapping
+		#from Questions and Test. Basically, each Test can have multiple questions in it...
 
 		test_created_id = testcreated.test_id
 		for question in added_questions:
-
 			test_question_instance = Test_Question(test_id=test_created_id, question_id=question)
 			db.session.add(test_question_instance)
 			db.session.commit()
 
+		#Nothing special, move along
 
 		msg = "Added questions "+ str(added_questions) + "for " + college 
 		flash(msg,'success')
 		
 		return redirect(url_for('displayadminpanel'))
-		
 
 
 
@@ -390,17 +425,22 @@ def createtest():
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+		   #Basically, see if the filename is allowed or not. That is, check if the part after 
+		   #The . is a list in ALLOWED_EXTENSIONS. which just contains 'csv'
 
 @app.route('/adminpanel/sendinvites',methods=['GET','POST'])
 def sendinvites():
 	if request.method == 'GET':
 		tests = Test.query.all()
 		return render_template('sendinvites.html', tests=tests)
+		#just send all the rows of the tests to the render_template method which will put everything in place
+
 	else:
 		# check if the post request has the file part
 		if 'file' not in request.files:
 			flash('No file part','danger')
 			return redirect(request.url)
+		
 		file = request.files['file']
 		# if user does not select file, browser also
 		# submit an empty part without filename
@@ -408,12 +448,16 @@ def sendinvites():
 			flash('No selected file','danger')
 			return redirect(request.url)
 		if file and allowed_file(file.filename):
-			filename = secure_filename(file.filename)
-			file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-			df = pd.read_csv(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-			emails = df.values[:,0] #List of emails from the file
+			filename = secure_filename(file.filename) #Secure filename is something I dont understand
+			file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename)) #Save the file in the UPLOAD FOLDER thing
+
+			df = pd.read_csv(os.path.join(app.config['UPLOAD_FOLDER'], filename)) #Read the CSV file we just got
+			emails = df.values[:,0] #List of emails from the file #I am assuming the csv just contains a list of 
+			#Emails in the first row
 			
-			selectedtestid = request.form.get('selectedtestid')
+			selectedtestid = request.form.get('selectedtestid') #The admin will have selected a test, whose test id we
+			#will get
+
 			print("selectedtestid => ", selectedtestid)
 			''' Create a test instance for each email_id. Select some random questions from Test_question. '''
 			
@@ -421,44 +465,54 @@ def sendinvites():
 			#Fetch all the questions which belong to a particular test
 			questions = Test_Question.query.filter_by(test_id = selectedtestid).all()
 			print("Questions which belong to test id number",selectedtestid,"->>",questions)
+
+			#All the rows of the invitedemails table
 			invitedemails = db.session.query(InvitedEmails.email_id).all()
 			print("Invited emails =>",invitedemails)
+			
+			#The query will result in a list of tuples, but we only really need the first element of each tuple
+
 			invitedemailslist = []
 			for invitedemail in invitedemails:
 				invitedemailslist.append(invitedemail[0])
 
 			for email in emails:
-	
 				if email not in invitedemailslist:
-
-				
 					#Pick any no_of_questions_in_test_instance number of questions randmomly from Test_question
-					RandomListOfQuestions = random.sample(questions, 3)
+					RandomListOfQuestions = random.sample(questions, no_of_questions_in_test_instance)
 					print("For email id = ",email,"Selected questions are->>",RandomListOfQuestions)
 
 
 					for row in RandomListOfQuestions:
-						test_question_id_of_random_question = row.test_question_id
+						test_question_id_of_random_question = row.test_question_id  
+						#Use the question_id of the randomly picked question to create a test_instance row, 
+						#Which can then be committed. Basically, we just create test instance rows for every
+						#Email ID
+
 						test_instance_object = TestInstance(student_email = email, test_question_id = test_question_id_of_random_question)
 						db.session.add(test_instance_object)
 						db.session.commit()
 					
+				#We add the email ID we just created instances for in our invitedEmails table, so that 
+				#We can avoid sending duplicate emails. So, we basically say each student can take only
+				#One test
+
 					invited_email_instance = InvitedEmails(email_id = email)
 					db.session.add(invited_email_instance)
 					db.session.commit()
 			
+			#Send the list of emails to the Celery worker, because sending Emails using an SMTP
+			#server is really expensive. We dont really care whether the email is valid or not. 
+			#We attempt to send emails
+
+
 			sendEmails.delay(list(emails))
 			flash("Invites sent!", 'success')
 
-
-			
 			return redirect(url_for('displayadminpanel'))
 		
 		flash("Please check the file uplaoded and try again", 'danger')
 		return redirect(url_for('displayadminpanel'))
-
-
-	
 
 
 
@@ -536,12 +590,15 @@ def displayquestion(number):
 	
 	if request.method == 'GET' and request.args.get('selectedanswer')== None:
 			
-			
+			#So he tries to access the 0th question, which doesn't exist. So we just send him back to
+			#the first question
 			if int(number) == 0:
 				return redirect('/question/1')
-			if int(number) <= no_of_questions_in_test_instance:
+			if int(number) <= no_of_questions_in_test_instance:  #If there are still questions to be displayed
+
 				question_to_be_displayed = questions_to_display.get(int(number))
-				if question_to_be_displayed == None:
+				
+				if question_to_be_displayed == None: #If there are no questions for this user
 					return "No questions for you "
 
 				global question_object #This is to communicate with the part that handles the POST request
