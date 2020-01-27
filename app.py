@@ -18,7 +18,7 @@ import os
 import random
 from celerytasks import sendEmails, setquestionslist, getquestionslist
 import json
-from redisworks import Root	
+
 
 
 #Change this to use environment variables
