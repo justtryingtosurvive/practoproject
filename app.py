@@ -45,7 +45,7 @@ questions_list = []
 questions_to_display={}
 answers_objects_list= []
 question_object = []
-TEST_DURATION = 2
+TEST_DURATION = 20   #This is in minutes
 selected_answer_id = 0
 ts=0
 endtime=0
@@ -599,7 +599,7 @@ def displayquestion(number):
 				question_to_be_displayed = questions_to_display.get(int(number))
 				
 				if question_to_be_displayed == None: #If there are no questions for this user
-					return "No questions for you "
+					return render_template("Noquestions.html")
 
 				global question_object #This is to communicate with the part that handles the POST request
 				#OTherwise, we would have to query again
@@ -627,7 +627,7 @@ def displayquestion(number):
 				return render_template("confirmendtest.html",question_number=int(number))
 	
 	else:
-
+		
 	
 		''' Basically, I need to add one more column,correct_answer_selected to testinstance, and rebuild the database. 
 		Make it false by default. Get the list of TestInstance objects, filtered by email_id of the session. 
