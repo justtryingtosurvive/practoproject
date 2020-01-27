@@ -1,0 +1,92 @@
+
+{% block head %}
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+
+ <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script type=text/javascript>
+    $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+  </script>
+
+
+
+<script>
+    $(document).ready(function(){
+      $("button").click(function(){
+        $.post("/questions/{{question_number}}",
+        {
+          selectedanswer: $('input[name$="selectedanswer"]')
+          
+        },
+        function(data,status){
+          alert("Data: " + data + "\nStatus: " + status);
+        });
+      });
+    });
+
+
+</script> 
+
+<script>
+    // Set the date we're counting down to
+    var countDownDate = {{endtime|safe}} ;
+    //Set the timer to expire after 20 minutes. 
+    // Update the count down every 1 second
+    var x = setInterval(function() {
+    
+      // Get today's date and time
+      var now = new Date().getTime();
+    
+      // Find the distance between now and the count down date
+      var distance = countDownDate - now;
+    
+      // Time calculations for days, hours, minutes and seconds
+    
+      var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+    
+      // Display the result in the element with id="demo"
+      document.getElementById("timer").innerHTML = minutes + "m " + seconds + "s ";
+    
+      // If the count down is finished, write some text
+      if (distance < 0) {
+        clearInterval(x);
+        document.getElementById("timer").innerHTML = "EXPIRED";
+        window.location.replace("/endtest");
+
+      }
+    }, 1000);
+    </script>
+
+ {% endblock %}
+
+
+{% block body %}
+<div>
+<p> Time remaining =  </p>
+<p id='timer'> </p>
+</div>
+<p> Q{{question_number}} out of {{total_number_of_questions_in_test}} <br/>
+{{question.questionstring}}
+</p>
+<p> Options: </p>
+<form action="/question/{{question_number}}" id="theForm"   >
+<ol>
+{% for answer in answers %}
+{% if answer.answer_id == selected_answer_id %}
+<li> <input type="radio" name='selectedanswer' value="{{answer.answer_id }}" autocomplete="off" checked= > {{answer.answer_string}} </li>
+{% else %}
+<li> <input type="radio" name='selectedanswer' value="{{answer.answer_id }}" autocomplete="off" > {{answer.answer_string}} </li>
+{% endif %}
+{% endfor %}
+</ol>
+<button> Save </button>
+</form>
+{% set decr = question_number -1 %}
+{% set incr = question_number +1 %}
+<a href="/question/{{decr}}">Previous question</a>
+<a href="/question/{{incr}} ">Next question</a>
+`
+
+{% endblock %}
+
+

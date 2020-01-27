@@ -1,0 +1,21 @@
+<p>
+    Pick a test to get the report of
+    <table border="2">
+        <tr>
+            <th>  </th>
+            <th>Id</th>
+            <th>Test name </th>
+        </tr>
+        <form method="POST" action="">
+        {% for test in tests %}
+        <tr>
+        <td><input type='radio' name='selectedtest' value="{{test.test_id}}"> </td>
+        <td>{{test.test_id}}</td>
+        <td>{{test.collegename}}</td>
+    </tr>
+        {% endfor %}
+    <input type='submit' value="submit">
+    </form>
+    </table>
+
+</p>
