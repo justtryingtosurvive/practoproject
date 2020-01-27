@@ -29,7 +29,7 @@ The API documentation can be found [here on Apiary](http://docs.jedicarpool.apia
 8. JQuery
 9. Ajax
 10. Git
-11.EC2
+11. EC2
 
 ## Usage
 
