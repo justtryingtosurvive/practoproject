@@ -56,9 +56,8 @@ answers_objects_list= []
 question_object = []
 TEST_DURATION = 2
 selected_answer_id = 0
-class RedisDB(Root):
-	pass
-redis = RedisDB()
+ts=0
+endtime=0
 
 class Test(db.Model):
 	__tablename__ = 'test'
@@ -240,6 +239,8 @@ def addquestiontobank():
 #Login
 @app.route('/login',methods=['GET', 'POST'])
 def login():
+	if('logged_in' in session):
+		return redirect(url_for('dashboard'))
 	if request.method == 'POST':
 		#Get form fields
 		username = request.form['username']
@@ -296,8 +297,7 @@ def logout():
 	questions_to_display={}
 	answers_objects_list= []
 	question_object = []
-	redis.questions.to.display = None
-	redis.questions.list = None
+
 	if session['status'] == 'InTest':
 		session.clear()
 		flash("This action is not allowed. Logging out.", 'danger')
@@ -480,7 +480,7 @@ def starttest(session_username):
 		#and display the question accordingly in another route.
 		global questions_list
 		questions_list = questions_associated_with_email
-		redis.questions.list = questions_list
+		
 	
 		#So we now save the question_ids of the questions to be displayed in a global dictionary,
 		#Whose indices start from 1. This is because we want to use the request parameter recieved
@@ -491,13 +491,19 @@ def starttest(session_username):
 		for i in range(1,len(questions_list)+1):
 			questions_to_display[i] = questions_list[i-1]
 		
-		redis.questions.to.display = questions_to_display
+		
+		global ts, endtime
+
 		print("questions_to_display-->>", questions_to_display)
 
 		ts = datetime.datetime.now().timestamp()  
 		'''Get current timestamp, this returns in seconds. But client side Javascript uses miliseconds. So, multiply by 1000'''
-		redis.ts = ts
-		#This is basically the timestamp of the start of the test		
+		
+		ts = ts*1000
+		endtime = ts+ TEST_DURATION*1000*60
+		#This is basically the timestamp of the end of the test		
+		
+		
 		return redirect(('/question/1'))
 		
 
@@ -535,12 +541,10 @@ def displayquestion(number):
 				answers_objects_list = Answers.query.filter_by(question_id = question_to_be_displayed).all()
 				print("Answers objects list ->>", answers_objects_list)
 
-				#Use redis here
-				ts = redis.ts
-
-				ts = ts*1000
-				endtime = ts+ TEST_DURATION*1000*60
-				redis.end.time = endtime
+				
+				
+				
+				global ts, endtime
 		
 				global selected_answer_id
 				
