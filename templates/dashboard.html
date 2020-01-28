@@ -2,18 +2,22 @@
 
 {% block body %}
 <body style=background-color:blanchedalmond>
-<marquee> <h1> <b><cite>{{session.username}},WELCOME TO PRACTO QUIZ </cite> </b></h1> </marquee>  
-<h2 style=background-color:coral;font-family:verdana;width:450px;font-size:35px;>RULES TO BE FOLLOWED</h2>
+  <center><h1 style="font-family: 'Lucida Sans';"> <b><cite>WELCOME TO PRACTO QUIZ </cite> </b></h1> </center>
+<div class="alert alert-danger" role="alert" style="width:1000px;"> 
+<h2 style="width:450px;font-size:30px;font-family:'Times New Roman';">RULES TO BE FOLLOWED</h2>
 
-<ul style="list-style-type:square;">
+<ul style="list-style-type:square;font-family: 'Segoe UI';">
     <li>The participants shall not be allowed to  use mobile,calculator or other electronic instruments.</li>
     <li>DO NOT COPY!! If you are found copying from other people or from any other online/offline source,your test will be cancelled.</li>
     
   </ul>
+</div> 
+    
+<div class="alert alert-warning" role="alert" style="width: 1000px;">
+  
 
-  <h2 style=background-color:coral;width:275px;font-family:verdana;font-size:35px;>INSTRUCTIONS</h2>
-
-  <ul style="list-style-type:square;">
+  <h2 style="font-size:30px;width:400px;font-family:'Times New Roman';">INSTRUCTIONS</h2>
+  <ul style="list-style-type:square;font-family: 'Segoe UI';">
     <li>There are 20 questions with 4-6 options.</li>
     <li>You can choose any <b>ONE</b> option.</li>
     <li>There will be <b>negative mark</b> for wrong answers.</li>
@@ -22,8 +26,17 @@
     <li>The test will be automatically submitted after 20 minutes.</li>
     
   </ul>
+  </div>
+  <center><button type="button" id="Button" class="btn btn-success" >Start Quiz</button></center>
+  
 
-<center><p><a href = '/startquiz/{{session.username}}'>Start Quiz </a></p></center>
+<script type="text/javascript">
+    document.getElementById("Button").onclick = function () {
+        location.href = "/startquiz/{{session.username}}";
+    };
+</script>
+<!-- <center><button><p><a href = '/startquiz/{{session.username}}'>Start Quiz </a></p></button></center> -->
 
 </body>
 {% endblock %}
+
