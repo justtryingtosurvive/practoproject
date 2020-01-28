@@ -1,7 +1,7 @@
 {% extends 'layout.html' %}
 
 {% block body %}
-
+<body style="background-color: honeydew;">
 <h1> Questions </h1>
 		<table border='2'>
             <tr>
@@ -20,10 +20,11 @@
             </tr>
             
             {% endfor %}
+		</table>
             <p>Which college is this for?<input type ='text' name='college'></p>
             <input type='submit' value="Submit" > 
             </form>
-        </table>
+        
         
 
 {% endblock %}
