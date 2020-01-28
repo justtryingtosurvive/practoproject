@@ -10,7 +10,6 @@
         $.post("/questions/{{question_number}}",
         {
           selectedanswer: $('input[name$="selectedanswer"]')
-          
         },
         function(data,status){
           alert("Data: " + data + "\nStatus: " + status);
