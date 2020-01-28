@@ -45,9 +45,10 @@ The requirements can be downloaded from :(https://github.com/justtryingtosurvive
 
 
 ### How to run
-
-1. Fill in your database details and other credentials in `application.properties`
-2. Run `mvn clean install` to create a WAR
-3. Place the created WAR file in tomcat's webapps directory
+1. Install all requirements using pip3 install -r requirements.txt
+2. Open a interactive python shell and type in "from app import db; db.create_all()" This will create the database on the server
+3. Start a RabbitMQ server by executing "sudo service rabbitmq-server start" on the terminal
+4. Start a Celery worker by executing "celery -A celerytasks worker --loglevel=info" on the terminal. 
+5. Execute the app.py by executing "python3 app.py"
 
 
