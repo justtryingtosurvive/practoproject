@@ -1,26 +1,46 @@
-<!doctype html>
-    <title>Send invitations</title>
-    <h1>Send invites</h1>
-    <p>Upload a csv file containing email ids. Inviting people will take a while. Be patient</p>
+{% extends 'layout.html' %}
+{% block body %}
+<style>th, td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  
+}
+table{
+    background-color: white;
+    padding:20%;
+}
+th {
+background-color: #00afff;
+color: white;
+}
+
+</style>
+<center style="background-color: aqua; padding:5%;">
     <form method=post enctype=multipart/form-data>
+    <b>Upload a csv file containing email ids.</b>
       <input type=file name=file>
-      
-      <p>Choose the test to invite people</p>
-        <table border="2">
+      <br/><br/>
+      <b>Choose the test to invite people</b>
+        <table>
           <tr>
             <th>     </th>
-            <th>ID </th>
+            <!-- <th>ID </th> -->
             <th>College name</th>
           </tr>
           {% for test in tests %}
           <tr>
             <td><input type="radio" name='selectedtestid' value="{{test.test_id}}"></td>
-            <td> {{test.test_id}}</td>
+            <!-- <td> {{test.test_id}}</td> -->
             <td> {{test.collegename}} </td>
           </tr>
           {% endfor %}
-        </table>
-        <input type=submit value="Invite" font_size="50">
+        </table><br/>
+        <input type=submit value="Send Invite" font_size="50" style="background-color:#00afff; color:white;">
+        <br/>
+        <br/>
+        <br/>
+        <b style="color:red;">Note: Inviting people will take a while. Be patient</b>
     </form>
-
-    
+  </center>
+{% endblock %}
