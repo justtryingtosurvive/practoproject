@@ -15,7 +15,7 @@ You can find the er diagram here!!
 
 ### API Documentation
 
-The API documentation can be found [here on Apiary](http://docs.jedicarpool.apiary.io).
+The API documentation can be found [here on Apiary](https://documenter.getpostman.com/view/10029778/SWTA9xji).
 
 ### Tools and Tech
 
