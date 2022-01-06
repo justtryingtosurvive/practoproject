@@ -12,5 +12,5 @@ SQLAlchemy==1.3.13
 Werkzeug==0.16.0
 WTForms==2.2.1
 Pandas==0.25.3
-Celery==4.4.0
+Celery==5.2.2
 Redisworks==0.2.7
